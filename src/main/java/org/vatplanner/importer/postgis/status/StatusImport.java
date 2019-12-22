@@ -13,6 +13,7 @@ import org.vatplanner.archiver.client.RawDataFileClient;
 import org.vatplanner.archiver.common.PackerMethod;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
 import org.vatplanner.dataformats.vatsimpublic.graph.GraphImport;
+import org.vatplanner.dataformats.vatsimpublic.parser.ParserLogEntry;
 import org.vatplanner.importer.postgis.status.entities.RelationalStatusEntityFactory;
 
 /**
@@ -28,7 +29,8 @@ public class StatusImport {
     private final PackerMethod packerMethod = PackerMethod.ZIP_DEFLATE; // TODO: configure
     private final int fileLimit = 1000; // TODO: configure
 
-    private final GraphImport graphImport = new GraphImport(new RelationalStatusEntityFactory());
+    private final DirtyEntityTracker tracker = new DirtyEntityTracker();
+    private final GraphImport graphImport = new GraphImport(new RelationalStatusEntityFactory(tracker));
 
     public StatusImport(RawDataFileClient archiveClient, Database database) {
         this.archiveClient = archiveClient;
@@ -36,8 +38,8 @@ public class StatusImport {
     }
 
     public void importNextChunk() {
-        // TODO: read latest imported record fetch time from DB
-        Instant earliestFetchTimestamp = Instant.MIN;
+        Instant latestImportedFetchTimestamp = database.getLatestFetchTime();
+        Instant earliestFetchTimestamp = (latestImportedFetchTimestamp != null) ? latestImportedFetchTimestamp.plusSeconds(1) : Instant.MIN;
         Instant latestFetchTimestamp = Instant.MAX;
 
         // request and parse data from archive
@@ -74,15 +76,28 @@ public class StatusImport {
                 continue;
             }
 
-            report.setFetchNode(dataFile.getFetchNode());
-            report.setFetchUrlRequested(dataFile.getFetchUrlRequested());
-            report.setFetchUrlRetrieved(dataFile.getFetchUrlRetrieved());
+            int parserRejectedLines = (int) dataFile
+                    .getContent()
+                    .getParserLogEntries()
+                    .stream()
+                    .filter(ParserLogEntry::isLineRejected)
+                    .count();
+
+            report
+                    .setFetchNode(dataFile.getFetchNode())
+                    .setFetchTime(dataFile.getFetchTime())
+                    .setFetchUrlRequested(dataFile.getFetchUrlRequested())
+                    .setFetchUrlRetrieved(dataFile.getFetchUrlRetrieved())
+                    .setParserRejectedLines(parserRejectedLines)
+                    .setParseTime(Instant.now());
         }
         Instant afterImport = Instant.now();
 
         LOGGER.debug("graph import took {} ms", Duration.between(beforeImport, afterImport).toMillis());
 
-        // TODO: save dirty entities to database
+        // save dirty entities to database
+        database.saveDirtyEntities(tracker);
+
         // TODO: free up memory
     }
 

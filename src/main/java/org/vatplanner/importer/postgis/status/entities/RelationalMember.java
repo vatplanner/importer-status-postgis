@@ -33,4 +33,9 @@ public class RelationalMember extends Member implements DirtyMark {
         return isDirty;
     }
 
+    @Override
+    public void markClean() {
+        isDirty = false;
+    }
+
 }

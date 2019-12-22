@@ -41,4 +41,9 @@ public class RelationalFlight extends Flight implements DirtyMark {
         return isDirty;
     }
 
+    @Override
+    public void markClean() {
+        isDirty = false;
+    }
+
 }

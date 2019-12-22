@@ -47,4 +47,9 @@ public class RelationalFacilityMessage extends FacilityMessage implements DirtyM
         return isDirty;
     }
 
+    @Override
+    public void markClean() {
+        isDirty = false;
+    }
+
 }

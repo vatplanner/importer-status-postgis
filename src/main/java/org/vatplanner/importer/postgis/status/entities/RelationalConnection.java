@@ -73,4 +73,9 @@ public class RelationalConnection extends Connection implements DirtyMark {
         return isDirty;
     }
 
+    @Override
+    public void markClean() {
+        isDirty = false;
+    }
+
 }

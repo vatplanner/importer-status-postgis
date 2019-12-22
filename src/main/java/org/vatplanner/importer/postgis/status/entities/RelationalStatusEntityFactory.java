@@ -10,11 +10,18 @@ import org.vatplanner.dataformats.vatsimpublic.entities.status.Member;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.StatusEntityFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.TrackPoint;
+import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
 
 /**
  * Factory producing graph entities extended to be exchanged with PostGIS.
  */
 public class RelationalStatusEntityFactory implements StatusEntityFactory {
+
+    private final DirtyEntityTracker tracker;
+
+    public RelationalStatusEntityFactory(DirtyEntityTracker tracker) {
+        this.tracker = tracker;
+    }
 
     @Override
     public Connection createConnection(Member member, Instant logonTime) {
@@ -48,7 +55,7 @@ public class RelationalStatusEntityFactory implements StatusEntityFactory {
 
     @Override
     public Report createReport(Instant recordTime) {
-        return new RelationalReport(recordTime);
+        return new RelationalReport(tracker, recordTime);
     }
 
     @Override

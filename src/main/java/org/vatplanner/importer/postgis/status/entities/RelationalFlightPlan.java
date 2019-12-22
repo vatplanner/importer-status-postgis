@@ -145,4 +145,9 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
         return isDirty;
     }
 
+    @Override
+    public void markClean() {
+        isDirty = false;
+    }
+
 }

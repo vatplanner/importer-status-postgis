@@ -16,6 +16,11 @@ public interface DirtyMark {
     public void markDirty();
 
     /**
+     * Marks the relational entity clean.
+     */
+    public void markClean();
+
+    /**
      * Checks if the relational entity is currently dirty.
      *
      * @return true if dirty, false if clean

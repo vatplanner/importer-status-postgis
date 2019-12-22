@@ -2,17 +2,21 @@ package org.vatplanner.importer.postgis.status.entities;
 
 import java.time.Instant;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
+import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
 
 /**
  * {@link Report} extended for exchange with PostGIS.
  */
 public class RelationalReport extends Report implements DirtyMark {
 
+    private final DirtyEntityTracker tracker;
+
     private boolean isDirty = true;
     private int databaseId = -1;
 
-    public RelationalReport(Instant recordTime) {
+    public RelationalReport(DirtyEntityTracker tracker, Instant recordTime) {
         super(recordTime);
+        this.tracker = tracker;
         markDirty();
     }
 
@@ -62,18 +66,28 @@ public class RelationalReport extends Report implements DirtyMark {
         return databaseId;
     }
 
-    public void setDatabaseId(int databaseId) {
+    public RelationalReport setDatabaseId(int databaseId) {
         this.databaseId = databaseId;
+        return this;
     }
 
     @Override
     public void markDirty() {
-        isDirty = true;
+        tracker.recordAsDirty(RelationalReport.class, this);
+    }
+
+    @Override
+    public void markClean() {
+        if (databaseId < 1) {
+            throw new UnsupportedOperationException("Entities must not be marked clean without a database ID!");
+        }
+
+        tracker.recordAsClean(RelationalReport.class, this);
     }
 
     @Override
     public boolean isDirty() {
-        return isDirty;
+        return tracker.getDirtyEntities(RelationalReport.class).contains(this);
     }
 
 }

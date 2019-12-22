@@ -46,4 +46,9 @@ public class RelationalFacility extends Facility implements DirtyMark {
         return isDirty;
     }
 
+    @Override
+    public void markClean() {
+        isDirty = false;
+    }
+
 }

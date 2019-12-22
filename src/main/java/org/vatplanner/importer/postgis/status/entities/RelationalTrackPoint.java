@@ -73,4 +73,9 @@ public class RelationalTrackPoint extends TrackPoint implements DirtyMark {
         return isDirty;
     }
 
+    @Override
+    public void markClean() {
+        isDirty = false;
+    }
+
 }
