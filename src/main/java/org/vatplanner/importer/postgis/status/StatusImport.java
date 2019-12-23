@@ -96,7 +96,10 @@ public class StatusImport {
         LOGGER.debug("graph import took {} ms", Duration.between(beforeImport, afterImport).toMillis());
 
         // save dirty entities to database
+        Instant beforeSave = Instant.now();
         database.saveDirtyEntities(tracker);
+        Instant afterSave = Instant.now();
+        LOGGER.debug("saving took {} ms", Duration.between(beforeSave, afterSave).toMillis());
 
         // TODO: free up memory
     }
