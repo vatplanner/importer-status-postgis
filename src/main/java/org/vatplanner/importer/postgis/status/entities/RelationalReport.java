@@ -59,7 +59,7 @@ public class RelationalReport extends Report implements DirtyMark {
         return fetchTime;
     }
 
-    public Report setFetchTime(Instant fetchTime) {
+    public RelationalReport setFetchTime(Instant fetchTime) {
         this.fetchTime = fetchTime;
         return this;
     }
@@ -80,7 +80,7 @@ public class RelationalReport extends Report implements DirtyMark {
         return fetchUrlRequested;
     }
 
-    public Report setFetchUrlRequested(String fetchUrlRequested) {
+    public RelationalReport setFetchUrlRequested(String fetchUrlRequested) {
         this.fetchUrlRequested = fetchUrlRequested;
         return this;
     }
@@ -101,7 +101,7 @@ public class RelationalReport extends Report implements DirtyMark {
         return fetchUrlRetrieved;
     }
 
-    public Report setFetchUrlRetrieved(String fetchUrlRetrieved) {
+    public RelationalReport setFetchUrlRetrieved(String fetchUrlRetrieved) {
         this.fetchUrlRetrieved = fetchUrlRetrieved;
         return this;
     }
@@ -120,7 +120,7 @@ public class RelationalReport extends Report implements DirtyMark {
         return fetchNode;
     }
 
-    public Report setFetchNode(String fetchNode) {
+    public RelationalReport setFetchNode(String fetchNode) {
         this.fetchNode = fetchNode;
         return this;
     }
@@ -139,7 +139,7 @@ public class RelationalReport extends Report implements DirtyMark {
         return parseTime;
     }
 
-    public Report setParseTime(Instant parseTime) {
+    public RelationalReport setParseTime(Instant parseTime) {
         this.parseTime = parseTime;
         return this;
     }
@@ -154,7 +154,7 @@ public class RelationalReport extends Report implements DirtyMark {
         return parserRejectedLines;
     }
 
-    public Report setParserRejectedLines(int parserRejectedLines) {
+    public RelationalReport setParserRejectedLines(int parserRejectedLines) {
         this.parserRejectedLines = parserRejectedLines;
         return this;
     }
