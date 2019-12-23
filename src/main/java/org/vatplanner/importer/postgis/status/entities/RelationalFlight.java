@@ -1,14 +1,13 @@
 package org.vatplanner.importer.postgis.status.entities;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.vatplanner.dataformats.vatsimpublic.entities.status.Connection;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Flight;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Member;
-import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
 import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
 
 /**
@@ -29,11 +28,18 @@ public class RelationalFlight extends Flight implements DirtyMark {
     }
 
     @Override
+    public Flight addConnection(Connection connection) {
+        markDirty();
+        return super.addConnection(connection);
+    }
+
+    /*
+    @Override
     public void markAsReconstructed(Report report) {
         markDirty();
         super.markAsReconstructed(report);
     }
-
+     */
     public int getDatabaseId() {
         return databaseId;
     }
@@ -58,11 +64,19 @@ public class RelationalFlight extends Flight implements DirtyMark {
         tracker.recordAsClean(RelationalFlight.class, this);
     }
 
-    public void insert(Connection db) throws SQLException {
-        if (getDatabaseId() > 0) {
-            throw new UnsupportedOperationException("updating flights is not implemented");
+    public void insert(java.sql.Connection db) throws SQLException {
+        if (getDatabaseId() <= 0) {
+            // insert currently only stores immutable information, updates mean that
+            // connections (m:n table) might have changed
+            insertFlight(db);
         }
 
+        insertConnections(db);
+
+        markClean();
+    }
+
+    public void insertFlight(java.sql.Connection db) throws SQLException {
         LOGGER.trace("INSERT flight: callsign {}", getCallsign());
 
         // TODO: save flag or number of reports if affected by reconstruction?
@@ -83,6 +97,23 @@ public class RelationalFlight extends Flight implements DirtyMark {
         }
 
         setDatabaseId(flightId);
-        markClean();
+    }
+
+    public void insertConnections(java.sql.Connection db) throws SQLException {
+        for (Connection connection : getConnections()) {
+            insertConnection(db, (RelationalConnection) connection);
+        }
+    }
+
+    public void insertConnection(java.sql.Connection db, RelationalConnection connection) throws SQLException {
+        LOGGER.trace("INSERT m:n flight={} connection={}", getDatabaseId(), connection.getDatabaseId());
+
+        PreparedStatement ps = db.prepareStatement("INSERT INTO connections_flights (flight_id, connection_id) VALUES (?, ?) ON CONFLICT DO NOTHING");
+        ps.setInt(1, getDatabaseId());
+        ps.setInt(2, connection.getDatabaseId());
+
+        ps.executeUpdate();
+
+        ps.close();
     }
 }

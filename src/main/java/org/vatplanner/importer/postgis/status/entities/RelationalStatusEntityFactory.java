@@ -25,7 +25,7 @@ public class RelationalStatusEntityFactory implements StatusEntityFactory {
 
     @Override
     public Connection createConnection(Member member, Instant logonTime) {
-        return new RelationalConnection(member, logonTime);
+        return new RelationalConnection(tracker, member, logonTime);
     }
 
     @Override

@@ -101,7 +101,8 @@ public class StatusImport {
         Instant afterSave = Instant.now();
         LOGGER.debug("saving took {} ms", Duration.between(beforeSave, afterSave).toMillis());
 
-        // TODO: free up memory
+        // TODO: free up memory in JVM
+        // TODO: periodic clean up in DB - data from connections and m:n tables is only needed while data is still recent (matching flights, fuzzy import)
     }
 
 }
