@@ -98,8 +98,9 @@ public class Database {
                     LOGGER.info("DB transaction successfully rolled back");
                 } catch (SQLException ex) {
                     LOGGER.warn("DB transaction rollback failed", ex);
-                    success.value = false;
                 }
+
+                success.value = false;
             }
         });
 
