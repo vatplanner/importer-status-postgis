@@ -50,7 +50,8 @@ public class RelationalStatusEntityFactory implements StatusEntityFactory {
 
     @Override
     public Member createMember(int vatsimId) {
-        return new RelationalMember(vatsimId);
+        // members are not stored in database
+        return new Member(vatsimId);
     }
 
     @Override
