@@ -11,7 +11,6 @@ public class RelationalReport extends Report implements DirtyMark {
 
     private final DirtyEntityTracker tracker;
 
-    private boolean isDirty = true;
     private int databaseId = -1;
 
     public RelationalReport(DirtyEntityTracker tracker, Instant recordTime) {
@@ -87,7 +86,7 @@ public class RelationalReport extends Report implements DirtyMark {
 
     @Override
     public boolean isDirty() {
-        return tracker.getDirtyEntities(RelationalReport.class).contains(this);
+        return tracker.isDirty(RelationalReport.class, this);
     }
 
 }

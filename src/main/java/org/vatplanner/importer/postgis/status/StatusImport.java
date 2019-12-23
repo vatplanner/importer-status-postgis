@@ -27,7 +27,7 @@ public class StatusImport {
     private final Database database;
 
     private final PackerMethod packerMethod = PackerMethod.ZIP_DEFLATE; // TODO: configure
-    private final int fileLimit = 1000; // TODO: configure
+    private final int fileLimit = 5; // TODO: configure
 
     private final DirtyEntityTracker tracker = new DirtyEntityTracker();
     private final GraphImport graphImport = new GraphImport(new RelationalStatusEntityFactory(tracker));

@@ -16,6 +16,7 @@ import java.util.Properties;
 import javax.xml.ws.Holder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.vatplanner.importer.postgis.status.entities.RelationalFlight;
 import org.vatplanner.importer.postgis.status.entities.RelationalReport;
 
 /**
@@ -143,6 +144,7 @@ public class Database {
             initializeCaches();
 
             forEach(db, tracker.getDirtyEntities(RelationalReport.class), this::insertReport);
+            forEach(db, tracker.getDirtyEntities(RelationalFlight.class), this::insertFlight);
 
             int dirtyAfter = tracker.countDirtyEntities();
             if (dirtyAfter > 0) {
@@ -212,6 +214,7 @@ public class Database {
         );
 
         // TODO: record number of skipped clients
+        // TODO: record number of reconstructed flights?
         PreparedStatement ps = db.prepareStatement("INSERT INTO reports (recordtime, connectedclients, fetchtime, fetchnode_id, fetchurlrequested_id, fetchurlretrieved_id, parsetime, parserrejectedlines) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING report_id");
         ps.setTimestamp(1, Timestamp.from(report.getRecordTime()));
         ps.setInt(2, report.getNumberOfConnectedClients());
@@ -295,4 +298,32 @@ public class Database {
         return id;
     }
 
+    private void insertFlight(Connection db, RelationalFlight flight) throws SQLException {
+        if (flight.getDatabaseId() > 0) {
+            throw new UnsupportedOperationException("updating flights is not implemented");
+        }
+
+        LOGGER.trace("INSERT flight: callsign {}", flight.getCallsign());
+
+        // TODO: save flag or number of reports if affected by reconstruction?
+        PreparedStatement ps = db.prepareStatement("INSERT INTO flights (vatsimid, callsign) VALUES (?, ?) RETURNING flight_id");
+        ps.setInt(1, flight.getMember().getVatsimId());
+        ps.setString(2, flight.getCallsign());
+
+        ResultSet rs = ps.executeQuery();
+
+        rs.next();
+        int flightId = rs.getInt("flight_id");
+
+        rs.close();
+        ps.close();
+
+        if (flightId <= 0) {
+            throw new RuntimeException("unexpected flight ID after insert: " + flightId);
+        }
+
+        flight
+                .setDatabaseId(flightId)
+                .markClean();
+    }
 }

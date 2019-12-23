@@ -40,7 +40,7 @@ public class RelationalStatusEntityFactory implements StatusEntityFactory {
 
     @Override
     public Flight createFlight(Member member, String callsign) {
-        return new RelationalFlight(member, callsign);
+        return new RelationalFlight(tracker, member, callsign);
     }
 
     @Override

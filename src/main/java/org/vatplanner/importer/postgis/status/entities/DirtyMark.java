@@ -25,5 +25,5 @@ public interface DirtyMark {
      *
      * @return true if dirty, false if clean
      */
-    public boolean isDirty();
+    public boolean isDirty(); // TODO: check if actually needed, remove if not
 }
