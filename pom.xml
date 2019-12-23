@@ -106,7 +106,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.vatplanner.archiver.Main</mainClass>
+                            <mainClass>org.vatplanner.importer.postgis.status.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
