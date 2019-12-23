@@ -5,22 +5,27 @@ import org.vatplanner.dataformats.vatsimpublic.entities.status.Flight;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.GeoCoordinates;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.TrackPoint;
+import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
 
 /**
  * {@link TrackPoint} extended for exchange with PostGIS.
  */
 public class RelationalTrackPoint extends TrackPoint implements DirtyMark {
 
-    private boolean isDirty = true;
-    private int databaseId = -1;
+    private final DirtyEntityTracker tracker;
 
-    public RelationalTrackPoint(Report report) {
+    public RelationalTrackPoint(DirtyEntityTracker tracker, Report report) {
         super(report);
+        this.tracker = tracker;
         markDirty();
     }
 
     @Override
     public TrackPoint setFlight(Flight flight) {
+        if (getFlight() != null) {
+            throw new UnsupportedOperationException("trackpoints cannot change flights because database primary key would change");
+        }
+
         markDirty();
         return super.setFlight(flight);
     }
@@ -55,27 +60,19 @@ public class RelationalTrackPoint extends TrackPoint implements DirtyMark {
         return super.setTransponderCode(transponderCode);
     }
 
-    public int getDatabaseId() {
-        return databaseId;
-    }
-
-    public void setDatabaseId(int databaseId) {
-        this.databaseId = databaseId;
-    }
-
     @Override
     public void markDirty() {
-        isDirty = true;
+        tracker.recordAsDirty(RelationalTrackPoint.class, this);
     }
 
     @Override
     public boolean isDirty() {
-        return isDirty;
+        return tracker.isDirty(RelationalTrackPoint.class, this);
     }
 
     @Override
     public void markClean() {
-        isDirty = false;
+        tracker.recordAsClean(RelationalTrackPoint.class, this);
     }
 
 }

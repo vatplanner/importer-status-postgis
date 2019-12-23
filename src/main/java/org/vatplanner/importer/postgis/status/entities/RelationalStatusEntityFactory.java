@@ -60,7 +60,7 @@ public class RelationalStatusEntityFactory implements StatusEntityFactory {
 
     @Override
     public TrackPoint createTrackPoint(Report report) {
-        return new RelationalTrackPoint(report);
+        return new RelationalTrackPoint(tracker, report);
     }
 
 }

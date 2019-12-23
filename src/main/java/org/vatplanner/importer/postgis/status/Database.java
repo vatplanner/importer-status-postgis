@@ -16,8 +16,11 @@ import java.util.Properties;
 import javax.xml.ws.Holder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.vatplanner.dataformats.vatsimpublic.entities.status.BarometricPressure;
+import org.vatplanner.dataformats.vatsimpublic.entities.status.GeoCoordinates;
 import org.vatplanner.importer.postgis.status.entities.RelationalFlight;
 import org.vatplanner.importer.postgis.status.entities.RelationalReport;
+import org.vatplanner.importer.postgis.status.entities.RelationalTrackPoint;
 
 /**
  * Provides methods to save to and load from a PostGIS database.
@@ -145,6 +148,7 @@ public class Database {
 
             forEach(db, tracker.getDirtyEntities(RelationalReport.class), this::insertReport);
             forEach(db, tracker.getDirtyEntities(RelationalFlight.class), this::insertFlight);
+            forEach(db, tracker.getDirtyEntities(RelationalTrackPoint.class), this::insertTrackPoint);
 
             int dirtyAfter = tracker.countDirtyEntities();
             if (dirtyAfter > 0) {
@@ -325,5 +329,63 @@ public class Database {
         flight
                 .setDatabaseId(flightId)
                 .markClean();
+    }
+
+    private void insertTrackPoint(Connection db, RelationalTrackPoint trackPoint) throws SQLException {
+        GeoCoordinates coords = trackPoint.getGeoCoordinates();
+        RelationalReport report = (RelationalReport) trackPoint.getReport();
+        RelationalFlight flight = (RelationalFlight) trackPoint.getFlight();
+
+        if (flight == null) {
+            throw new IllegalArgumentException("trackpoint is not associated to any flight");
+        }
+
+        int heading = trackPoint.getHeading();
+        int groundSpeed = trackPoint.getGroundSpeed();
+        int transponderCode = trackPoint.getTransponderCode();
+        BarometricPressure qnh = trackPoint.getQnh();
+
+        LOGGER.trace("INSERT trackpoint: report recorded {}, callsign {}, position {}, heading {}, GS {}, xpdr {}, QNH {}", report.getRecordTime(), flight.getCallsign(), coords, heading, groundSpeed, transponderCode, qnh);
+
+        PreparedStatement ps = db.prepareStatement("INSERT INTO trackpoints (report_id, flight_id, geocoords, heading, groundspeed, transpondercode, qnhcinhg, qnhhpa) VALUES (?, ?, ST_MakePoint(?, ?, ?), ?, ?, ?, ?, ?)");
+        ps.setInt(1, report.getDatabaseId());
+        ps.setInt(2, flight.getDatabaseId());
+        ps.setDouble(3, coords.getLongitude());
+        ps.setDouble(4, coords.getLatitude());
+        ps.setDouble(5, coords.getAltitudeFeet());
+
+        if (heading >= 0) {
+            ps.setInt(6, heading);
+        } else {
+            ps.setNull(6, Types.INTEGER);
+        }
+
+        if (groundSpeed >= 0) {
+            ps.setInt(7, groundSpeed);
+        } else {
+            ps.setNull(7, Types.INTEGER);
+        }
+
+        if (transponderCode >= 0) {
+            ps.setInt(8, transponderCode);
+        } else {
+            ps.setNull(8, Types.INTEGER);
+        }
+
+        // TODO: get rid of either centi-InHg or hPa if possible
+        // TODO: instead save calculated flight level?
+        if (qnh != null) {
+            ps.setInt(9, (int) Math.round(qnh.getInchesOfMercury() * 100.0));
+            ps.setInt(10, (int) Math.round(trackPoint.getQnh().getHectopascals()));
+        } else {
+            ps.setNull(9, Types.INTEGER);
+            ps.setNull(10, Types.INTEGER);
+        }
+
+        ps.execute();
+
+        ps.close();
+
+        trackPoint.markClean();
     }
 }
