@@ -2,22 +2,16 @@ package org.vatplanner.importer.postgis.status;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 import javax.xml.ws.Holder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.vatplanner.dataformats.vatsimpublic.entities.status.BarometricPressure;
-import org.vatplanner.dataformats.vatsimpublic.entities.status.GeoCoordinates;
 import org.vatplanner.importer.postgis.status.entities.RelationalFlight;
 import org.vatplanner.importer.postgis.status.entities.RelationalReport;
 import org.vatplanner.importer.postgis.status.entities.RelationalTrackPoint;
@@ -33,8 +27,7 @@ public class Database {
     private final String url;
     private final Properties properties;
 
-    private Map<String, Integer> cacheDeduplicationFetchNodes;
-    private Map<String, Integer> cacheDeduplicationFetchUrls;
+    private Caches caches;
 
     public Database(DatabaseConfiguration config) {
         url = "jdbc:postgresql://" + config.getHost() + ":" + config.getPort() + "/" + config.getDatabaseName();
@@ -144,11 +137,11 @@ public class Database {
         LOGGER.debug("saving {} dirty entities to database", dirtyBefore);
 
         boolean success = performTransactional(db -> {
-            initializeCaches();
+            initializeCaches(db);
 
-            forEach(db, tracker.getDirtyEntities(RelationalReport.class), this::insertReport);
-            forEach(db, tracker.getDirtyEntities(RelationalFlight.class), this::insertFlight);
-            forEach(db, tracker.getDirtyEntities(RelationalTrackPoint.class), this::insertTrackPoint);
+            forEachWithCaches(db, tracker.getDirtyEntities(RelationalReport.class), RelationalReport::insert);
+            forEach(db, tracker.getDirtyEntities(RelationalFlight.class), RelationalFlight::insert);
+            forEach(db, tracker.getDirtyEntities(RelationalTrackPoint.class), RelationalTrackPoint::insert);
 
             int dirtyAfter = tracker.countDirtyEntities();
             if (dirtyAfter > 0) {
@@ -165,227 +158,29 @@ public class Database {
         }
     }
 
-    private void initializeCaches() {
-        if ((cacheDeduplicationFetchNodes != null) || (cacheDeduplicationFetchUrls != null)) {
+    private void initializeCaches(Connection db) {
+        if (caches != null) {
             throw new UnsupportedOperationException("caches must not be reused across transactions");
         }
 
-        cacheDeduplicationFetchNodes = new HashMap<>();
-        cacheDeduplicationFetchUrls = new HashMap<>();
+        caches = new Caches(db);
     }
 
     private void evictCaches() {
-        cacheDeduplicationFetchNodes = null;
-        cacheDeduplicationFetchUrls = null;
+        caches.evict();
+        caches = null;
     }
 
-    private <T> void forEach(Connection db, Collection<T> elements, ExceptionalBiConsumer<Connection, T> consumer) throws Exception {
+    private <T> void forEach(Connection db, Collection<T> elements, ExceptionalBiConsumer<T, Connection> consumer) throws Exception {
         for (T element : elements) {
-            consumer.accept(db, element);
+            consumer.accept(element, db);
         }
     }
 
-    private void insertReport(Connection db, RelationalReport report) throws SQLException {
-        if (report.getDatabaseId() > 0) {
-            throw new UnsupportedOperationException("updating reports is not implemented");
+    private <T> void forEachWithCaches(Connection db, Collection<T> elements, ExceptionalTriConsumer<T, Connection, Caches> consumer) throws Exception {
+        for (T element : elements) {
+            consumer.accept(element, db, caches);
         }
-
-        LOGGER.trace("INSERT report: record time {}, fetch time {}", report.getRecordTime(), report.getFetchTime());
-
-        // TODO: replace deduplication by DB functions
-        int fetchNodeId = getDeduplicationId(
-                db,
-                cacheDeduplicationFetchNodes,
-                report.getFetchNode(),
-                "SELECT fetchnode_id FROM fetchnodes WHERE \"name\"=?",
-                "INSERT INTO fetchnodes (\"name\") VALUES (?) RETURNING fetchnode_id"
-        );
-
-        int fetchUrlRequestedId = getDeduplicationId(
-                db,
-                cacheDeduplicationFetchUrls,
-                report.getFetchUrlRequested(),
-                "SELECT fetchurl_id FROM fetchurls WHERE \"url\"=?",
-                "INSERT INTO fetchurls (\"url\") VALUES (?) RETURNING fetchurl_id"
-        );
-
-        int fetchUrlRetrievedId = getDeduplicationId(
-                db,
-                cacheDeduplicationFetchUrls,
-                report.getFetchUrlRetrieved(),
-                "SELECT fetchurl_id FROM fetchurls WHERE \"url\"=?",
-                "INSERT INTO fetchurls (\"url\") VALUES (?) RETURNING fetchurl_id"
-        );
-
-        // TODO: record number of skipped clients
-        // TODO: record number of reconstructed flights?
-        PreparedStatement ps = db.prepareStatement("INSERT INTO reports (recordtime, connectedclients, fetchtime, fetchnode_id, fetchurlrequested_id, fetchurlretrieved_id, parsetime, parserrejectedlines) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING report_id");
-        ps.setTimestamp(1, Timestamp.from(report.getRecordTime()));
-        ps.setInt(2, report.getNumberOfConnectedClients());
-        ps.setTimestamp(3, Timestamp.from(report.getFetchTime()));
-        if (fetchNodeId > 0) {
-            ps.setInt(4, fetchNodeId);
-        } else {
-            ps.setNull(4, Types.INTEGER);
-        }
-        ps.setInt(5, fetchUrlRequestedId);
-        if (fetchUrlRetrievedId > 0) {
-            ps.setInt(6, fetchUrlRetrievedId);
-        } else {
-            ps.setNull(6, Types.INTEGER);
-        }
-        ps.setTimestamp(7, Timestamp.from(report.getParseTime()));
-        ps.setInt(8, report.getParserRejectedLines());
-
-        ResultSet rs = ps.executeQuery();
-
-        rs.next();
-        int reportId = rs.getInt("report_id");
-
-        rs.close();
-        ps.close();
-
-        if (reportId <= 0) {
-            throw new RuntimeException("unexpected report ID after insert: " + reportId);
-        }
-
-        report
-                .setDatabaseId(reportId)
-                .markClean();
     }
 
-    private int getDeduplicationId(Connection db, Map<String, Integer> cache, String original, String sqlSelect, String sqlInsert) throws SQLException {
-        // TODO: replace by DB function
-
-        if (original == null) {
-            LOGGER.trace("DEDUPLICATION NULL, no lookup");
-            return 0;
-        }
-
-        int id = cache.getOrDefault(original, -1);
-
-        if (id > 0) {
-            LOGGER.trace("DEDUPLICATION CACHED: {} => {}", original, id);
-            return id;
-        }
-
-        LOGGER.trace("DEDUPLICATION SELECT for {}: ", original, sqlSelect);
-
-        PreparedStatement ps = db.prepareStatement(sqlSelect);
-        ps.setString(1, original);
-
-        ResultSet rs = ps.executeQuery();
-        boolean hasId = rs.next();
-        if (hasId) {
-            id = rs.getInt(1);
-        } else {
-            rs.close();
-            ps.close();
-
-            LOGGER.trace("DEDUPLICATION INSERT for {}: ", original, sqlSelect);
-
-            ps = db.prepareStatement(sqlInsert);
-            ps.setString(1, original);
-            rs = ps.executeQuery();
-
-            rs.next();
-            id = rs.getInt(1);
-        }
-
-        rs.close();
-        ps.close();
-
-        LOGGER.trace("DEDUPLICATION FOUND: {} => {}", original, id);
-
-        cache.put(original, id);
-
-        return id;
-    }
-
-    private void insertFlight(Connection db, RelationalFlight flight) throws SQLException {
-        if (flight.getDatabaseId() > 0) {
-            throw new UnsupportedOperationException("updating flights is not implemented");
-        }
-
-        LOGGER.trace("INSERT flight: callsign {}", flight.getCallsign());
-
-        // TODO: save flag or number of reports if affected by reconstruction?
-        PreparedStatement ps = db.prepareStatement("INSERT INTO flights (vatsimid, callsign) VALUES (?, ?) RETURNING flight_id");
-        ps.setInt(1, flight.getMember().getVatsimId());
-        ps.setString(2, flight.getCallsign());
-
-        ResultSet rs = ps.executeQuery();
-
-        rs.next();
-        int flightId = rs.getInt("flight_id");
-
-        rs.close();
-        ps.close();
-
-        if (flightId <= 0) {
-            throw new RuntimeException("unexpected flight ID after insert: " + flightId);
-        }
-
-        flight
-                .setDatabaseId(flightId)
-                .markClean();
-    }
-
-    private void insertTrackPoint(Connection db, RelationalTrackPoint trackPoint) throws SQLException {
-        GeoCoordinates coords = trackPoint.getGeoCoordinates();
-        RelationalReport report = (RelationalReport) trackPoint.getReport();
-        RelationalFlight flight = (RelationalFlight) trackPoint.getFlight();
-
-        if (flight == null) {
-            throw new IllegalArgumentException("trackpoint is not associated to any flight");
-        }
-
-        int heading = trackPoint.getHeading();
-        int groundSpeed = trackPoint.getGroundSpeed();
-        int transponderCode = trackPoint.getTransponderCode();
-        BarometricPressure qnh = trackPoint.getQnh();
-
-        LOGGER.trace("INSERT trackpoint: report recorded {}, callsign {}, position {}, heading {}, GS {}, xpdr {}, QNH {}", report.getRecordTime(), flight.getCallsign(), coords, heading, groundSpeed, transponderCode, qnh);
-
-        PreparedStatement ps = db.prepareStatement("INSERT INTO trackpoints (report_id, flight_id, geocoords, heading, groundspeed, transpondercode, qnhcinhg, qnhhpa) VALUES (?, ?, ST_MakePoint(?, ?, ?), ?, ?, ?, ?, ?)");
-        ps.setInt(1, report.getDatabaseId());
-        ps.setInt(2, flight.getDatabaseId());
-        ps.setDouble(3, coords.getLongitude());
-        ps.setDouble(4, coords.getLatitude());
-        ps.setDouble(5, coords.getAltitudeFeet());
-
-        if (heading >= 0) {
-            ps.setInt(6, heading);
-        } else {
-            ps.setNull(6, Types.INTEGER);
-        }
-
-        if (groundSpeed >= 0) {
-            ps.setInt(7, groundSpeed);
-        } else {
-            ps.setNull(7, Types.INTEGER);
-        }
-
-        if (transponderCode >= 0) {
-            ps.setInt(8, transponderCode);
-        } else {
-            ps.setNull(8, Types.INTEGER);
-        }
-
-        // TODO: get rid of either centi-InHg or hPa if possible
-        // TODO: instead save calculated flight level?
-        if (qnh != null) {
-            ps.setInt(9, (int) Math.round(qnh.getInchesOfMercury() * 100.0));
-            ps.setInt(10, (int) Math.round(trackPoint.getQnh().getHectopascals()));
-        } else {
-            ps.setNull(9, Types.INTEGER);
-            ps.setNull(10, Types.INTEGER);
-        }
-
-        ps.execute();
-
-        ps.close();
-
-        trackPoint.markClean();
-    }
 }
