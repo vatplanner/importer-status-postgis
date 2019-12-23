@@ -11,9 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.client.RawDataFileClient;
 import org.vatplanner.archiver.common.PackerMethod;
-import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
 import org.vatplanner.dataformats.vatsimpublic.graph.GraphImport;
 import org.vatplanner.dataformats.vatsimpublic.parser.ParserLogEntry;
+import org.vatplanner.importer.postgis.status.entities.RelationalReport;
 import org.vatplanner.importer.postgis.status.entities.RelationalStatusEntityFactory;
 
 /**
@@ -69,7 +69,7 @@ public class StatusImport {
 
         Instant beforeImport = Instant.now();
         for (ParsedDataFile dataFile : dataFiles) {
-            Report report = graphImport.importDataFile(dataFile.getContent());
+            RelationalReport report = (RelationalReport) graphImport.importDataFile(dataFile.getContent());
 
             if (report == null) {
                 LOGGER.warn("Graph import rejected data file recorded {}, fetched {} by node {}, requested from {}, retrieved from {}", dataFile.getContent().getMetaData().getTimestamp(), dataFile.getFetchTime(), dataFile.getFetchNode(), dataFile.getFetchUrlRequested(), dataFile.getFetchUrlRetrieved());
