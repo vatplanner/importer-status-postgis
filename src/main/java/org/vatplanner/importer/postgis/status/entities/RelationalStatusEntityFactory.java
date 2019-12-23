@@ -45,7 +45,7 @@ public class RelationalStatusEntityFactory implements StatusEntityFactory {
 
     @Override
     public FlightPlan createFlightPlan(Flight flight, int revision) {
-        return new RelationalFlightPlan(flight, revision);
+        return new RelationalFlightPlan(tracker, flight, revision);
     }
 
     @Override
