@@ -9,13 +9,10 @@ import java.time.Duration;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.vatplanner.dataformats.vatsimpublic.entities.status.CommunicationMode;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Flight;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightPlan;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightPlanType;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
-import org.vatplanner.dataformats.vatsimpublic.entities.status.SimpleEquipmentSpecification;
-import org.vatplanner.dataformats.vatsimpublic.entities.status.WakeTurbulenceCategory;
 import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
 
 /**
@@ -35,9 +32,16 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
 
     @Override
     public FlightPlan seenInReport(Report report) {
-        // TODO: check if and how saved, might be irrelevant
-        markDirty();
-        return super.seenInReport(report);
+        Report previousFirstSeenReport = getReportFirstSeen();
+        super.seenInReport(report);
+        Report newFirstSeenReport = getReportFirstSeen();
+
+        boolean hasChanged = (previousFirstSeenReport == null) || (previousFirstSeenReport != newFirstSeenReport);
+        if (hasChanged) {
+            markDirty();
+        }
+
+        return this;
     }
 
     @Override
@@ -59,21 +63,9 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
     }
 
     @Override
-    public FlightPlan setCommunicationMode(CommunicationMode communicationMode) {
-        markDirty();
-        return super.setCommunicationMode(communicationMode);
-    }
-
-    @Override
     public FlightPlan setDepartureAirportCode(String departureAirportCode) {
         markDirty();
         return super.setDepartureAirportCode(departureAirportCode);
-    }
-
-    @Override
-    public FlightPlan setDepartureTimeActual(Instant departureTimeActual) {
-        markDirty();
-        return super.setDepartureTimeActual(departureTimeActual);
     }
 
     @Override
@@ -107,34 +99,9 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
     }
 
     @Override
-    public FlightPlan setRemarks(String remarks) {
-        // TODO: check if we save remarks, otherwise ignore this field
-        markDirty();
-        return super.setRemarks(remarks);
-    }
-
-    @Override
     public FlightPlan setRoute(String route) {
         markDirty();
         return super.setRoute(route);
-    }
-
-    @Override
-    public FlightPlan setSimpleEquipmentSpecification(SimpleEquipmentSpecification simpleEquipmentSpecification) {
-        markDirty();
-        return super.setSimpleEquipmentSpecification(simpleEquipmentSpecification);
-    }
-
-    @Override
-    public FlightPlan setTrueAirSpeed(int trueAirSpeed) {
-        markDirty();
-        return super.setTrueAirSpeed(trueAirSpeed);
-    }
-
-    @Override
-    public FlightPlan setWakeTurbulenceCategory(WakeTurbulenceCategory wakeTurbulenceCategory) {
-        markDirty();
-        return super.setWakeTurbulenceCategory(wakeTurbulenceCategory);
     }
 
     @Override
@@ -157,7 +124,7 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
 
         RelationalFlight flight = (RelationalFlight) getFlight();
 
-        LOGGER.trace("INSERT flightplan: flight {}, revision {}, first report {}, callsign {}, altitude {}, dep {}, dest {}, alt {}, type {}", flight.getDatabaseId(), getRevision(), getReportFirstSeen().getRecordTime(), flight.getCallsign(), getAltitudeFeet(), getDepartureAirportCode(), getDestinationAirportCode(), getAlternateAirportCode(), getAircraftType());
+        LOGGER.trace("INSERT flightplan: flight {}, revision {}, first report {}, callsign {}, altitude {}, dep {}, dest {}, alt {}, type {}, enroute {}, fuel {}", flight.getDatabaseId(), getRevision(), getReportFirstSeen().getRecordTime(), flight.getCallsign(), getAltitudeFeet(), getDepartureAirportCode(), getDestinationAirportCode(), getAlternateAirportCode(), getAircraftType(), getEstimatedTimeEnroute(), getEstimatedTimeFuel());
 
         PreparedStatement ps = db.prepareStatement("INSERT INTO flightplans (flight_id, revision, firstseen_report_id, flightplantype, departuretimeplanned, route, altitudefeet, minutesenroute, minutesfuel, departureairport, destinationairport, alternateairport, aircrafttype) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         ps.setInt(1, flight.getDatabaseId());
