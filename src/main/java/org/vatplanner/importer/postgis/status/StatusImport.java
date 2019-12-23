@@ -27,18 +27,22 @@ public class StatusImport {
     private final Database database;
 
     private final PackerMethod packerMethod = PackerMethod.ZIP_DEFLATE; // TODO: configure
-    private final int fileLimit = 5; // TODO: configure
 
     private final DirtyEntityTracker tracker = new DirtyEntityTracker();
     private final GraphImport graphImport = new GraphImport(new RelationalStatusEntityFactory(tracker));
+
+    private Instant latestImportedFetchTimestamp;
 
     public StatusImport(RawDataFileClient archiveClient, Database database) {
         this.archiveClient = archiveClient;
         this.database = database;
     }
 
-    public void importNextChunk() {
-        Instant latestImportedFetchTimestamp = database.getLatestFetchTime();
+    public int importNextChunk(int fileLimit) {
+        if (latestImportedFetchTimestamp == null) {
+            latestImportedFetchTimestamp = database.getLatestFetchTime();
+        }
+
         Instant earliestFetchTimestamp = (latestImportedFetchTimestamp != null) ? latestImportedFetchTimestamp.plusSeconds(1) : Instant.MIN;
         Instant latestFetchTimestamp = Instant.MAX;
 
@@ -62,6 +66,12 @@ public class StatusImport {
             dataFiles = futureDataFiles.get();
         } catch (InterruptedException | ExecutionException ex) {
             throw new RuntimeException("Failed to load/parse data from archive for chunk from " + earliestFetchTimestamp + " to " + latestFetchTimestamp + " (file limit " + fileLimit + ").", ex);
+        }
+
+        // abort if we got no data files
+        if (dataFiles.isEmpty()) {
+            LOGGER.info("received no data files");
+            return 0;
         }
 
         // import to graph
@@ -101,8 +111,11 @@ public class StatusImport {
         Instant afterSave = Instant.now();
         LOGGER.debug("saving took {} ms", Duration.between(beforeSave, afterSave).toMillis());
 
+        latestImportedFetchTimestamp = dataFiles.get(dataFiles.size() - 1).getFetchTime();
+
         // TODO: free up memory in JVM
         // TODO: periodic clean up in DB - data from connections and m:n tables is only needed while data is still recent (matching flights, fuzzy import)
+        return dataFiles.size();
     }
 
 }
