@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
@@ -215,9 +216,17 @@ public class Database {
         ps.setTimestamp(1, Timestamp.from(report.getRecordTime()));
         ps.setInt(2, report.getNumberOfConnectedClients());
         ps.setTimestamp(3, Timestamp.from(report.getFetchTime()));
-        ps.setInt(4, fetchNodeId);
+        if (fetchNodeId > 0) {
+            ps.setInt(4, fetchNodeId);
+        } else {
+            ps.setNull(4, Types.INTEGER);
+        }
         ps.setInt(5, fetchUrlRequestedId);
-        ps.setInt(6, fetchUrlRetrievedId);
+        if (fetchUrlRetrievedId > 0) {
+            ps.setInt(6, fetchUrlRetrievedId);
+        } else {
+            ps.setNull(6, Types.INTEGER);
+        }
         ps.setTimestamp(7, Timestamp.from(report.getParseTime()));
         ps.setInt(8, report.getParserRejectedLines());
 
