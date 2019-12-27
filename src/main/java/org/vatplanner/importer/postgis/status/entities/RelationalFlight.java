@@ -76,7 +76,7 @@ public class RelationalFlight extends Flight implements DirtyMark {
         markClean();
     }
 
-    public void insertFlight(java.sql.Connection db) throws SQLException {
+    private void insertFlight(java.sql.Connection db) throws SQLException {
         LOGGER.trace("INSERT flight: callsign {}", getCallsign());
 
         // TODO: save flag or number of reports if affected by reconstruction?
@@ -99,13 +99,13 @@ public class RelationalFlight extends Flight implements DirtyMark {
         setDatabaseId(flightId);
     }
 
-    public void insertConnections(java.sql.Connection db) throws SQLException {
+    private void insertConnections(java.sql.Connection db) throws SQLException {
         for (Connection connection : getConnections()) {
             insertConnection(db, (RelationalConnection) connection);
         }
     }
 
-    public void insertConnection(java.sql.Connection db, RelationalConnection connection) throws SQLException {
+    private void insertConnection(java.sql.Connection db, RelationalConnection connection) throws SQLException {
         LOGGER.trace("INSERT m:n flight={} connection={}", getDatabaseId(), connection.getDatabaseId());
 
         PreparedStatement ps = db.prepareStatement("INSERT INTO connections_flights (flight_id, connection_id) VALUES (?, ?) ON CONFLICT DO NOTHING");
