@@ -35,7 +35,8 @@ public class RelationalStatusEntityFactory implements StatusEntityFactory {
 
     @Override
     public FacilityMessage createFacilityMessage(Facility facility) {
-        return new RelationalFacilityMessage(facility);
+        // messages are not stored in database
+        return new FacilityMessage(facility);
     }
 
     @Override
