@@ -30,7 +30,7 @@ public class RelationalStatusEntityFactory implements StatusEntityFactory {
 
     @Override
     public Facility createFacility(String name) {
-        return new RelationalFacility(name);
+        return new RelationalFacility(tracker, name);
     }
 
     @Override

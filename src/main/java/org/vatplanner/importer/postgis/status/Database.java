@@ -13,6 +13,7 @@ import javax.xml.ws.Holder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.importer.postgis.status.entities.RelationalConnection;
+import org.vatplanner.importer.postgis.status.entities.RelationalFacility;
 import org.vatplanner.importer.postgis.status.entities.RelationalFlight;
 import org.vatplanner.importer.postgis.status.entities.RelationalFlightPlan;
 import org.vatplanner.importer.postgis.status.entities.RelationalReport;
@@ -144,6 +145,7 @@ public class Database {
 
             forEachWithCaches(db, tracker.getDirtyEntities(RelationalReport.class), RelationalReport::insert);
             forEach(db, tracker.getDirtyEntities(RelationalConnection.class), RelationalConnection::upsert);
+            forEach(db, tracker.getDirtyEntities(RelationalFacility.class), RelationalFacility::insert);
             forEach(db, tracker.getDirtyEntities(RelationalFlight.class), RelationalFlight::insert);
             forEach(db, tracker.getDirtyEntities(RelationalFlightPlan.class), RelationalFlightPlan::insert);
             forEach(db, tracker.getDirtyEntities(RelationalTrackPoint.class), RelationalTrackPoint::insert);
