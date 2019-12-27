@@ -7,6 +7,8 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Flight;
@@ -23,6 +25,9 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
     private static final Logger LOGGER = LoggerFactory.getLogger(RelationalFlight.class);
 
     private final DirtyEntityTracker tracker;
+
+    private static final Pattern PATTERN_AIRPORT_CODE = Pattern.compile("^([a-z0-9]+)[^a-z0-9].*$", Pattern.CASE_INSENSITIVE);
+    private static final int PATTERN_AIRPORT_CODE_CODE = 1;
 
     public RelationalFlightPlan(DirtyEntityTracker tracker, Flight flight, int revision) {
         super(flight, revision);
@@ -117,6 +122,50 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
     @Override
     public void markClean() {
         tracker.recordAsClean(RelationalFlightPlan.class, this);
+    }
+
+    @Override
+    public String normalizeAirportCode(String airportCode) {
+        airportCode = super.normalizeAirportCode(airportCode);
+
+        if (airportCode == null) {
+            return null;
+        }
+
+        // There are numerous errors in imported data, most apparent in airport
+        // code fields. Sometimes fields seem to be misplaced (might be due to
+        // user input or even client glitches), other times users actually
+        // entered the route to their alternate destination into the alternate
+        // airport code field... This leads to lots of unexpected input to
+        // database and field length errors if we try to save it. At the same
+        // time such input cannot be reliably interpreted anyway, so why bother
+        // saving it?
+        // Since alternate routes following alternate airport codes appears to
+        // be a common pattern among multiple users, we perform additional
+        // normalization by trimming everything after the first special
+        // character.
+        // This has to be done by overriding normalization method because just
+        // saving such data to DB means flights would not be recognized again by
+        // graph import when shortened data was loaded back to base a new import
+        // on.
+        Matcher matcher = PATTERN_AIRPORT_CODE.matcher(airportCode);
+        if (matcher.matches()) {
+            String original = airportCode;
+
+            airportCode = matcher.group(PATTERN_AIRPORT_CODE_CODE);
+
+            LOGGER.trace("normalized airport code \"{}\" from \"{}\"", airportCode, original);
+        }
+
+        if (!airportCode.isEmpty()) {
+            char firstChar = airportCode.charAt(0);
+            if (((firstChar < 'A') || (firstChar > 'Z')) && ((firstChar < '0') || (firstChar > '9'))) {
+                LOGGER.trace("supposed airport code \"{}\" starts with special character, erasing", airportCode);
+                return "";
+            }
+        }
+
+        return airportCode;
     }
 
     public void insert(Connection db) throws SQLException {
