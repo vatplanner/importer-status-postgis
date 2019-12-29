@@ -27,4 +27,29 @@ public class TimeHelpers {
         return (start.compareTo(x) <= 0) && (x.compareTo(end) <= 0);
     }
 
+    /**
+     * Returns the minimum of both {@link Instant}s. Null input will be ignored
+     * and leads to the other parameter being returned.
+     *
+     * @param a first Instant; may be null
+     * @param b second Instant; may be null
+     * @return minimum of both Instants; null values are ignored; null if both
+     * parameters are null
+     */
+    public static Instant min(Instant a, Instant b) {
+        if (a == null) {
+            return b;
+        }
+
+        if (b == null) {
+            return a;
+        }
+
+        if (a.isBefore(b)) {
+            return a;
+        } else {
+            return b;
+        }
+    }
+
 }

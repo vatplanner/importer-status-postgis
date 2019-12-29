@@ -88,4 +88,58 @@ public class TimeHelpersTest {
         // Act
         TimeHelpers.isBetween(Instant.ofEpochSecond(100), Instant.ofEpochSecond(300), Instant.ofEpochSecond(200));
     }
+
+    @Test
+    @DataProvider({
+        "10, 20, 10",
+        "20, 20, 20",
+        "30, 20, 20"
+    })
+    public void testMin_nonNull_returnsExpectedResult(int timestampA, int timestampB, int expectedTimestamp) {
+        // Arrange
+        Instant a = Instant.ofEpochSecond(timestampA);
+        Instant b = Instant.ofEpochSecond(timestampB);
+        Instant expectedResult = Instant.ofEpochSecond(expectedTimestamp);
+
+        // Act
+        Instant result = TimeHelpers.min(a, b);
+
+        // Assert
+        assertThat(result, is(equalTo(expectedResult)));
+    }
+
+    @Test
+    @DataProvider({"10", "20"})
+    public void testMin_firstParameterNull_returnsSecondParameter(int expectedTimestamp) {
+        // Arrange
+        Instant expectedResult = Instant.ofEpochSecond(expectedTimestamp);
+
+        // Act
+        Instant result = TimeHelpers.min(null, expectedResult);
+
+        // Assert
+        assertThat(result, is(equalTo(expectedResult)));
+    }
+
+    @Test
+    @DataProvider({"10", "20"})
+    public void testMin_secondParameterNull_returnsFirstParameter(int expectedTimestamp) {
+        // Arrange
+        Instant expectedResult = Instant.ofEpochSecond(expectedTimestamp);
+
+        // Act
+        Instant result = TimeHelpers.min(expectedResult, null);
+
+        // Assert
+        assertThat(result, is(equalTo(expectedResult)));
+    }
+
+    @Test
+    public void testMin_bothParameterNull_returnsNull() {
+        // Act
+        Instant result = TimeHelpers.min(null, null);
+
+        // Assert
+        assertThat(result, is(nullValue()));
+    }
 }

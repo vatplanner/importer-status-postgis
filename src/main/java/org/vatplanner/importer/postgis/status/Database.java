@@ -10,9 +10,12 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
+import java.util.SortedSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.ws.Holder;
@@ -20,9 +23,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.BarometricPressure;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FacilityType;
+import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightPlan;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightPlanType;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.GeoCoordinates;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Member;
+import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.StatusEntityFactory;
 import org.vatplanner.dataformats.vatsimpublic.graph.GraphIndex;
 import org.vatplanner.importer.postgis.status.entities.RelationalConnection;
@@ -31,6 +36,7 @@ import org.vatplanner.importer.postgis.status.entities.RelationalFlight;
 import org.vatplanner.importer.postgis.status.entities.RelationalFlightPlan;
 import org.vatplanner.importer.postgis.status.entities.RelationalReport;
 import org.vatplanner.importer.postgis.status.entities.RelationalTrackPoint;
+import org.vatplanner.importer.postgis.status.utils.TimeHelpers;
 import static org.vatplanner.importer.postgis.status.utils.TimeHelpers.isBetween;
 
 /**
@@ -54,6 +60,8 @@ public class Database {
     private static final int PATTERN_POSTGIS_POINTZ_LONGITUDE = 1;
     private static final int PATTERN_POSTGIS_POINTZ_LATITUDE = 2;
     private static final int PATTERN_POSTGIS_POINTZ_Z = 3;
+
+    private static final Duration FLIGHT_PLAN_RETENTION_TIME = Duration.ofHours(2); // TODO: make configurable
 
     public Database(DatabaseConfiguration config) {
         url = "jdbc:postgresql://" + config.getHost() + ":" + config.getPort() + "/" + config.getDatabaseName();
@@ -567,7 +575,8 @@ public class Database {
                                 throw new RuntimeException("report ID " + firstSeenReportId + " has not been loaded");
                             }
 
-                            // TODO: add to first seen report + reports following retention time until flight has a connection
+                            flightPlan.seenInReport(firstSeenReport);
+
                             flightPlan.markClean();
 
                             flight.addFlightPlan(flightPlan);
@@ -619,7 +628,7 @@ public class Database {
 
             // register all flights to reports as indicated by record times on
             // connections
-            Instant startFlightRegistration = Instant.now();
+            Instant startFlightConnectionRegistration = Instant.now();
             for (RelationalFlight flight : flightsById.values()) {
                 for (org.vatplanner.dataformats.vatsimpublic.entities.status.Connection connection : flight.getConnections()) {
                     Instant firstRecordTime = connection.getFirstReport().getRecordTime();
@@ -631,10 +640,90 @@ public class Database {
                             .forEach(report -> report.addFlight(flight));
                 }
             }
-            Instant endFlightRegistration = Instant.now();
-            LOGGER.trace("registered loaded flights to reports by connections (took {}ms)", Duration.between(startFlightRegistration, endFlightRegistration).toMillis());
+            Instant endFlightConnectionRegistration = Instant.now();
+            LOGGER.trace("registered loaded flights to reports by connections (took {}ms)", Duration.between(startFlightConnectionRegistration, endFlightConnectionRegistration).toMillis());
 
-            // TODO: register flights to reports according to flight plans (prefiling)
+            // register flights to reports by flight plans (for prefilings)
+            // starting with first seen report of flight plan and assuming
+            // flight was visible for the usual retention time; this does not
+            // provide an accurate but only a plausible reconstruction of data
+            Instant startFlightPlanRegistration = Instant.now();
+            int numNoFlightPlan = 0;
+            int numNoPrefiling = 0;
+            int numFlightsRegisteredByFlightPlan = 0;
+            for (RelationalFlight flight : flightsById.values()) {
+                SortedSet<FlightPlan> flightPlans = flight.getFlightPlans();
+
+                // skip flights without any flight plans at all
+                if (flightPlans.isEmpty()) {
+                    numNoFlightPlan++;
+                    continue;
+                }
+
+                SortedSet<org.vatplanner.dataformats.vatsimpublic.entities.status.Connection> connections = flight.getConnections();
+
+                Instant firstFlightPlanRevisionRecordTime = getFirst(flightPlans)
+                        .map(FlightPlan::getReportFirstSeen)
+                        .map(Report::getRecordTime)
+                        .orElse(null);
+
+                Instant firstConnectionRecordTime = getFirst(connections)
+                        .map(org.vatplanner.dataformats.vatsimpublic.entities.status.Connection::getFirstReport)
+                        .map(Report::getRecordTime)
+                        .orElse(null);
+
+                Optional<FlightPlan> lastFlightPlanRevisionBeforeConnected;
+                if (firstConnectionRecordTime == null) {
+                    lastFlightPlanRevisionBeforeConnected = getLast(flightPlans);
+                } else {
+                    lastFlightPlanRevisionBeforeConnected = flightPlans.stream()
+                            .filter(flightPlan -> flightPlan.getReportFirstSeen().getRecordTime().isBefore(firstConnectionRecordTime))
+                            .max(Comparator.comparingInt(FlightPlan::getRevision));
+                }
+
+                // flights may have no pre-filings but file only while online
+                // in which case we don't have revisions before client is
+                // connected => skip
+                if (!lastFlightPlanRevisionBeforeConnected.isPresent()) {
+                    numNoPrefiling++;
+                    continue;
+                }
+
+                Instant lastFlightPlanRevisionRecordTimeBeforeConnected = lastFlightPlanRevisionBeforeConnected
+                        .map(FlightPlan::getReportFirstSeen)
+                        .map(Report::getRecordTime)
+                        .orElse(null);
+
+                Instant lastConnectionRecordTime = getLast(connections)
+                        .map(org.vatplanner.dataformats.vatsimpublic.entities.status.Connection::getLastReport)
+                        .map(Report::getRecordTime)
+                        .orElse(null);
+
+                // retention of flight plans starts with first revision and is
+                // assumed to end with either disconnect or at end of well-known
+                // retention period
+                Instant latestAssumedRetentionTime = TimeHelpers.min(
+                        lastConnectionRecordTime,
+                        lastFlightPlanRevisionRecordTimeBeforeConnected.plus(FLIGHT_PLAN_RETENTION_TIME)
+                );
+
+                reportsById
+                        .values()
+                        .stream()
+                        .filter(report -> isBetween(report.getRecordTime(), firstFlightPlanRevisionRecordTime, latestAssumedRetentionTime))
+                        .forEach(report -> report.addFlight(flight));
+
+                numFlightsRegisteredByFlightPlan++;
+            }
+            Instant endFlightPlanRegistration = Instant.now();
+            LOGGER.trace(
+                    "registered loaded flights to reports by flight plans/prefilings (took {}ms; {} flights registered, {} without prefiling, {} without flight plan)",
+                    Duration.between(startFlightPlanRegistration, endFlightPlanRegistration).toMillis(),
+                    numFlightsRegisteredByFlightPlan,
+                    numNoPrefiling,
+                    numNoFlightPlan
+            );
+
             // delete temporary tables
             execute(db, "DROP TABLE _load_connections");
             execute(db, "DROP TABLE _load_flights");
@@ -653,6 +742,22 @@ public class Database {
             LOGGER.error("Failed to load reports from database, giving up...");
             System.exit(1);
         }
+    }
+
+    private <T> Optional<T> getFirst(SortedSet<T> set) {
+        if (set.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(set.first());
+    }
+
+    private <T> Optional<T> getLast(SortedSet<T> set) {
+        if (set.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(set.last());
     }
 
     private GeoCoordinates convertPostGisToGeoCoordinates(String s) {
