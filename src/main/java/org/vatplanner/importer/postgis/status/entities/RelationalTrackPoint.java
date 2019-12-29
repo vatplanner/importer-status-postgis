@@ -22,6 +22,8 @@ public class RelationalTrackPoint extends TrackPoint implements DirtyMark {
 
     private final DirtyEntityTracker tracker;
 
+    public static final boolean POSTGIS_IS_ALTITUDE_UNIT_FEET = true; // TOOD: make configurable
+
     public RelationalTrackPoint(DirtyEntityTracker tracker, Report report) {
         super(report);
         this.tracker = tracker;
@@ -104,7 +106,7 @@ public class RelationalTrackPoint extends TrackPoint implements DirtyMark {
         ps.setInt(2, flight.getDatabaseId());
         ps.setDouble(3, coords.getLongitude());
         ps.setDouble(4, coords.getLatitude());
-        ps.setDouble(5, coords.getAltitudeFeet());
+        ps.setDouble(5, POSTGIS_IS_ALTITUDE_UNIT_FEET ? coords.getAltitudeFeet() : coords.getAltitudeMeters());
 
         if (heading >= 0) {
             ps.setInt(6, heading);

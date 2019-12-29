@@ -11,10 +11,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.client.RawDataFileClient;
 import org.vatplanner.archiver.common.PackerMethod;
+import org.vatplanner.dataformats.vatsimpublic.entities.status.StatusEntityFactory;
 import org.vatplanner.dataformats.vatsimpublic.graph.GraphImport;
+import org.vatplanner.dataformats.vatsimpublic.graph.GraphIndex;
 import org.vatplanner.dataformats.vatsimpublic.parser.ParserLogEntry;
+import org.vatplanner.importer.postgis.status.entities.RelationalConnection;
+import org.vatplanner.importer.postgis.status.entities.RelationalFacility;
+import org.vatplanner.importer.postgis.status.entities.RelationalFlight;
+import org.vatplanner.importer.postgis.status.entities.RelationalFlightPlan;
 import org.vatplanner.importer.postgis.status.entities.RelationalReport;
 import org.vatplanner.importer.postgis.status.entities.RelationalStatusEntityFactory;
+import org.vatplanner.importer.postgis.status.entities.RelationalTrackPoint;
 
 /**
  * Performs batch import of archived status information to PostGIS.
@@ -27,9 +34,11 @@ public class StatusImport {
     private final Database database;
 
     private final PackerMethod packerMethod = PackerMethod.ZIP_DEFLATE; // TODO: configure
+    private final Duration fullGraphReloadTime = Duration.ofHours(3); // TODO: configure
 
     private final DirtyEntityTracker tracker = new DirtyEntityTracker();
-    private final GraphImport graphImport = new GraphImport(new RelationalStatusEntityFactory(tracker));
+    private final StatusEntityFactory statusEntityFactory = new RelationalStatusEntityFactory(tracker);
+    private final GraphImport graphImport = new GraphImport(statusEntityFactory);
 
     private Instant latestImportedFetchTimestamp;
 
@@ -40,6 +49,7 @@ public class StatusImport {
 
     public int importNextChunk(int fileLimit) {
         if (latestImportedFetchTimestamp == null) {
+            // FIXME: in case of no timestamp/empty database ask user to confirm by command line parameter to restart import for all available reports
             latestImportedFetchTimestamp = database.getLatestFetchTime();
         }
 
@@ -59,7 +69,28 @@ public class StatusImport {
                             .collect(Collectors.toList());
                 });
 
-        // TODO: read graph for last X hours from DB if not already loaded
+        // load partial graph from DB if not already loaded
+        GraphIndex graphIndex = graphImport.getIndex();
+        if (!graphIndex.hasReports()) {
+            database.loadReportsSinceRecordTime(graphIndex, statusEntityFactory, latestImportedFetchTimestamp.minus(fullGraphReloadTime));
+        }
+
+        // check that tracker indicates no dirty entities
+        int dirtyEntitiesBeforeImport = tracker.countDirtyEntities();
+        if (dirtyEntitiesBeforeImport != 0) {
+            LOGGER.error(
+                    "{} dirty entities found before import: {} connections, {} facilities, {} flights, {} flight plans, {} reports, {} track points",
+                    dirtyEntitiesBeforeImport,
+                    tracker.getDirtyEntities(RelationalConnection.class).size(),
+                    tracker.getDirtyEntities(RelationalFacility.class).size(),
+                    tracker.getDirtyEntities(RelationalFlight.class).size(),
+                    tracker.getDirtyEntities(RelationalFlightPlan.class).size(),
+                    tracker.getDirtyEntities(RelationalReport.class).size(),
+                    tracker.getDirtyEntities(RelationalTrackPoint.class).size()
+            );
+            throw new RuntimeException(dirtyEntitiesBeforeImport + " dirty entities after loading, expected clean state; aborting");
+        }
+
         // get archive result
         List<ParsedDataFile> dataFiles;
         try {
