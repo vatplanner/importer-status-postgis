@@ -35,6 +35,7 @@ public class StatusImport {
 
     private final PackerMethod packerMethod = PackerMethod.ZIP_DEFLATE; // TODO: configure
     private final Duration fullGraphReloadTime = Duration.ofHours(3); // TODO: configure
+    private boolean allowImportOnEmptyDatabase = false;
 
     private final DirtyEntityTracker tracker = new DirtyEntityTracker();
     private final StatusEntityFactory statusEntityFactory = new RelationalStatusEntityFactory(tracker);
@@ -47,11 +48,37 @@ public class StatusImport {
         this.database = database;
     }
 
+    /**
+     * Configures whether next chunk import is allowed to commence with an empty
+     * database, causing all available data to be imported from archive. The
+     * option disables itself as soon as it seems not to be needed.
+     *
+     * @param allowImportOnEmptyDatabase set true to allow import on empty
+     * database once
+     */
+    public void setAllowImportOnEmptyDatabase(boolean allowImportOnEmptyDatabase) {
+        this.allowImportOnEmptyDatabase = allowImportOnEmptyDatabase;
+    }
+
     public int importNextChunk(int fileLimit) {
         if (latestImportedFetchTimestamp == null) {
-            // FIXME: in case of no timestamp/empty database ask user to confirm by command line parameter to restart import for all available reports
             latestImportedFetchTimestamp = database.getLatestFetchTime();
         }
+
+        if (latestImportedFetchTimestamp == null) {
+            LOGGER.warn("Database seems to hold no records at all; could not retrieve last imported fetch timestamp.");
+
+            if (!allowImportOnEmptyDatabase) {
+                LOGGER.error("Import on empty database has been disabled, exiting...");
+                System.exit(1);
+            } else {
+                LOGGER.warn("Import on empty database was enabled, import will start with earliest available data from archive.");
+            }
+        }
+
+        // import on empty database is a "one time per application start" option
+        // disable on each run as soon as it is sure this option is not needed
+        allowImportOnEmptyDatabase = false;
 
         Instant earliestFetchTimestamp = (latestImportedFetchTimestamp != null) ? latestImportedFetchTimestamp.plusSeconds(1) : Instant.MIN;
         Instant latestFetchTimestamp = Instant.MAX;
@@ -71,7 +98,7 @@ public class StatusImport {
 
         // load partial graph from DB if not already loaded
         GraphIndex graphIndex = graphImport.getIndex();
-        if (!graphIndex.hasReports()) {
+        if (!graphIndex.hasReports() && (latestImportedFetchTimestamp != null)) {
             database.loadReportsSinceRecordTime(graphIndex, statusEntityFactory, latestImportedFetchTimestamp.minus(fullGraphReloadTime));
         }
 
@@ -144,7 +171,6 @@ public class StatusImport {
 
         latestImportedFetchTimestamp = dataFiles.get(dataFiles.size() - 1).getFetchTime();
 
-        // TODO: free up memory in JVM
         // TODO: periodic clean up in DB - data from connections and m:n tables is only needed while data is still recent (matching flights, fuzzy import)
         return dataFiles.size();
     }
