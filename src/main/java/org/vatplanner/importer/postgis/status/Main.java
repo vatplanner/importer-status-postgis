@@ -1,5 +1,6 @@
 package org.vatplanner.importer.postgis.status;
 
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.client.RawDataFileClient;
@@ -22,7 +23,8 @@ public class Main {
 
         int maxFilesPerChunk = 200; // TODO: configure
         int maxFilesBeforeRestart = 1500; // TODO: configure
-        boolean allowImportOnEmptyDatabase = true; // TODO: configure
+        boolean allowImportOnEmptyDatabase = false; // TODO: configure
+        Instant emptyDatabaseEarliestFetchTime = Instant.MIN; // TODO: configure
         double maxPercentageIncreaseSinceFirstImport = 200.0; // TODO: configure
         double maxMemoryIncreaseSinceFirstImportMegaBytes = 500; // TODO: configure
 
@@ -33,6 +35,7 @@ public class Main {
         while (true) {
             StatusImport importer = new StatusImport(archiveClient, database);
             importer.setAllowImportOnEmptyDatabase(allowImportOnEmptyDatabase);
+            importer.setEarliestFetchTimestampEmptyDatabase(emptyDatabaseEarliestFetchTime);
             allowImportOnEmptyDatabase = false;
 
             int remainingFilesBeforeRestart = maxFilesBeforeRestart;

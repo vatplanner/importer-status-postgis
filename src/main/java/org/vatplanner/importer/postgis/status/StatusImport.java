@@ -36,6 +36,7 @@ public class StatusImport {
     private final PackerMethod packerMethod = PackerMethod.ZIP_DEFLATE; // TODO: configure
     private final Duration fullGraphReloadTime = Duration.ofHours(3); // TODO: configure
     private boolean allowImportOnEmptyDatabase = false;
+    private Instant earliestFetchTimestampEmptyDatabase = Instant.MIN;
 
     private final DirtyEntityTracker tracker = new DirtyEntityTracker();
     private final StatusEntityFactory statusEntityFactory = new RelationalStatusEntityFactory(tracker);
@@ -60,6 +61,17 @@ public class StatusImport {
         this.allowImportOnEmptyDatabase = allowImportOnEmptyDatabase;
     }
 
+    /**
+     * Configures the fetch time of earliest report to be imported in case of an
+     * empty database.
+     *
+     * @param earliestFetchTimestampEmptyDatabase fetch time of earliest report
+     * to be imported in case of an empty database
+     */
+    public void setEarliestFetchTimestampEmptyDatabase(Instant earliestFetchTimestampEmptyDatabase) {
+        this.earliestFetchTimestampEmptyDatabase = earliestFetchTimestampEmptyDatabase;
+    }
+
     public int importNextChunk(int fileLimit) {
         if (latestImportedFetchTimestamp == null) {
             latestImportedFetchTimestamp = database.getLatestFetchTime();
@@ -80,7 +92,9 @@ public class StatusImport {
         // disable on each run as soon as it is sure this option is not needed
         allowImportOnEmptyDatabase = false;
 
-        Instant earliestFetchTimestamp = (latestImportedFetchTimestamp != null) ? latestImportedFetchTimestamp.plusSeconds(1) : Instant.MIN;
+        Instant earliestFetchTimestamp = (latestImportedFetchTimestamp != null)
+                ? latestImportedFetchTimestamp.plusSeconds(1)
+                : earliestFetchTimestampEmptyDatabase;
         Instant latestFetchTimestamp = Instant.MAX;
 
         // request and parse data from archive
