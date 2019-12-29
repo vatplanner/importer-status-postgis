@@ -19,6 +19,7 @@ import java.util.SortedSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.ws.Holder;
+import org.postgresql.util.PGInterval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.BarometricPressure;
@@ -312,6 +313,31 @@ public class Database {
                     + "SELECT DISTINCT flight_id "
                     + "FROM connections_flights cf "
                     + "WHERE cf.connection_id IN (SELECT connection_id FROM _load_connections) "
+            );
+
+            // select flights to load
+            // referenced by flight plans
+            // with maximum theoretical (not actual) retention time
+            // within timespan of reports preselected for complete import
+            executeBenchmarked("PRESELECT flights / flight plans / complete reports within maximum retention time " + FLIGHT_PLAN_RETENTION_TIME, db, ""
+                    + "INSERT INTO _load_flights "
+                    + "SELECT DISTINCT flight_id "
+                    + "FROM flightplans fp "
+                    + "LEFT OUTER JOIN reports rfs ON rfs.report_id = fp.firstseen_report_id "
+                    + "WHERE (rfs.recordtime, rfs.recordtime + ?) OVERLAPS ( "
+                    + "   (SELECT MIN(r.recordtime) "
+                    + "    FROM _load_reports _lr "
+                    + "    LEFT OUTER JOIN reports r ON r.report_id = _lr.report_id "
+                    + "    WHERE _lr.complete = true "
+                    + "   ), "
+                    + "   (SELECT MAX(r.recordtime) + INTERVAL '1 second' "
+                    + "    FROM _load_reports _lr "
+                    + "    LEFT OUTER JOIN reports r ON r.report_id = _lr.report_id "
+                    + "    WHERE _lr.complete = true "
+                    + "   ) "
+                    + ") "
+                    + "ON CONFLICT DO NOTHING ",
+                    ps -> ps.setObject(1, toPostgresInterval(FLIGHT_PLAN_RETENTION_TIME))
             );
 
             // select additional connections to load
@@ -794,20 +820,24 @@ public class Database {
     }
 
     private <EX extends Exception> void benchmark(String name, Class<EX> exceptionClass, ExceptionalRunnable<EX> runnable) throws EX {
-        EX caught = null;
+        Exception caught = null;
 
         Instant start = Instant.now();
         try {
             runnable.run();
         } catch (Exception ex) {
-            caught = exceptionClass.cast(ex);
+            caught = ex;
         }
         Instant end = Instant.now();
 
         LOGGER.debug("{} took {}ms", name, Duration.between(start, end).toMillis());
 
         if (caught != null) {
-            throw caught;
+            if (exceptionClass.isInstance(caught)) {
+                throw exceptionClass.cast(caught);
+            } else {
+                throw new RuntimeException("caught unexpected exception", caught);
+            }
         }
     }
 
@@ -847,5 +877,10 @@ public class Database {
         }
 
         return value;
+    }
+
+    private PGInterval toPostgresInterval(Duration duration) throws SQLException {
+        String s = Long.toString(duration.getSeconds()) + " seconds";
+        return new PGInterval(s);
     }
 }
