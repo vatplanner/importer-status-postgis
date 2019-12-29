@@ -71,7 +71,7 @@ public class RelationalFacility extends Facility implements DirtyMark {
 
     public void insert(java.sql.Connection db) throws SQLException {
         if (hasRecordInDatabase) {
-            throw new UnsupportedOperationException("updating facilities is not implemented");
+            throw new UnsupportedOperationException("updating facilities is not implemented: name \"" + getName() + "\", connection ID " + ((RelationalConnection) getConnection()).getDatabaseId());
         }
 
         if (!providesATCService()) {
