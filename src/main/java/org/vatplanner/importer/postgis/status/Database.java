@@ -381,7 +381,7 @@ public class Database {
                             }
                         }
 
-                        LOGGER.trace("read {} reports from database", reportsById.size());
+                        LOGGER.debug("read {} reports from database", reportsById.size());
                     }
             );
 
@@ -425,8 +425,8 @@ public class Database {
                             }
                         }
 
-                        LOGGER.trace("read {} connections from database", connectionsById.size());
-                        LOGGER.trace("read {} members (combined total as of reading connections) from database", membersByVatsimId.size());
+                        LOGGER.debug("read {} connections from database", connectionsById.size());
+                        LOGGER.debug("read {} members (combined total as of reading connections) from database", membersByVatsimId.size());
                     }
             );
 
@@ -478,7 +478,7 @@ public class Database {
                                     .forEach(report -> report.addFacility(facility));
                         }
 
-                        LOGGER.trace("read {} facilities from database", importedFacilities);
+                        LOGGER.debug("read {} facilities from database", importedFacilities);
                     }
             );
 
@@ -506,7 +506,7 @@ public class Database {
                             }
                         }
 
-                        LOGGER.trace("read {} flights from database", flightsById.size());
+                        LOGGER.debug("read {} flights from database", flightsById.size());
                     }
             );
 
@@ -536,7 +536,7 @@ public class Database {
                             flight.markClean();
                         }
 
-                        LOGGER.trace("created {} associations between flights and connections", numAssociations);
+                        LOGGER.debug("created {} associations between flights and connections", numAssociations);
                     }
             );
 
@@ -582,7 +582,7 @@ public class Database {
                             flight.addFlightPlan(flightPlan);
                         }
 
-                        LOGGER.trace("read {} flight plans from database", numFlightPlans);
+                        LOGGER.debug("read {} flight plans from database", numFlightPlans);
                     }
             );
 
@@ -622,7 +622,7 @@ public class Database {
                             report.addFlight(flight);
                         }
 
-                        LOGGER.trace("read {} track points from database", numTrackPoints);
+                        LOGGER.debug("read {} track points from database", numTrackPoints);
                     }
             );
 
@@ -641,7 +641,7 @@ public class Database {
                 }
             }
             Instant endFlightConnectionRegistration = Instant.now();
-            LOGGER.trace("registered loaded flights to reports by connections (took {}ms)", Duration.between(startFlightConnectionRegistration, endFlightConnectionRegistration).toMillis());
+            LOGGER.debug("registered loaded flights to reports by connections (took {}ms)", Duration.between(startFlightConnectionRegistration, endFlightConnectionRegistration).toMillis());
 
             // register flights to reports by flight plans (for prefilings)
             // starting with first seen report of flight plan and assuming
@@ -716,7 +716,7 @@ public class Database {
                 numFlightsRegisteredByFlightPlan++;
             }
             Instant endFlightPlanRegistration = Instant.now();
-            LOGGER.trace(
+            LOGGER.debug(
                     "registered loaded flights to reports by flight plans/prefilings (took {}ms; {} flights registered, {} without prefiling, {} without flight plan)",
                     Duration.between(startFlightPlanRegistration, endFlightPlanRegistration).toMillis(),
                     numFlightsRegisteredByFlightPlan,
@@ -804,7 +804,7 @@ public class Database {
         }
         Instant end = Instant.now();
 
-        LOGGER.trace("{} took {}ms", name, Duration.between(start, end).toMillis());
+        LOGGER.debug("{} took {}ms", name, Duration.between(start, end).toMillis());
 
         if (caught != null) {
             throw caught;
