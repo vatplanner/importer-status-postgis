@@ -755,6 +755,10 @@ public class Database {
             execute(db, "DROP TABLE _load_flights");
             execute(db, "DROP TABLE _load_reports");
 
+            // insert entities to graph index
+            membersByVatsimId.values().forEach(graphIndex::add);
+            reportsById.values().forEach(graphIndex::add);
+
             Instant end = Instant.now();
             LOGGER.info(
                     "Loading complete after {}ms (preselect {}ms, fetch {}ms)",
