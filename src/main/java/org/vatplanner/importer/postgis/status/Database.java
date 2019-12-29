@@ -560,12 +560,12 @@ public class Database {
                             RelationalFlightPlan flightPlan = (RelationalFlightPlan) statusEntityFactory.createFlightPlan(flight, revision);
                             flightPlan.setAircraftType(rs.getString("aircrafttype"));
                             flightPlan.setAlternateAirportCode(rs.getString("alternateairport"));
-                            flightPlan.setAltitudeFeet(rs.getInt("altitudefeet")); // FIXME: handle null
+                            flightPlan.setAltitudeFeet(negativeIfNull(rs, "altitudefeet"));
                             flightPlan.setDepartureAirportCode(rs.getString("departureairport"));
                             flightPlan.setDepartureTimePlanned(toInstant(rs.getTimestamp("departuretimeplanned")));
                             flightPlan.setDestinationAirportCode(rs.getString("destinationairport"));
-                            flightPlan.setEstimatedTimeEnroute(Duration.ofMinutes(rs.getInt("minutesenroute"))); // FIXME: handle null
-                            flightPlan.setEstimatedTimeFuel(Duration.ofMinutes(rs.getInt("minutesfuel"))); // FIXME: handle null
+                            flightPlan.setEstimatedTimeEnroute(nullableDurationOfMinutes(rs, "minutesenroute"));
+                            flightPlan.setEstimatedTimeFuel(nullableDurationOfMinutes(rs, "minutesfuel"));
                             flightPlan.setFlightPlanType(FlightPlanType.resolveFlightPlanCode(rs.getString("flightplantype")));
                             flightPlan.setRoute(rs.getString("route"));
 
@@ -611,10 +611,10 @@ public class Database {
                             RelationalTrackPoint trackPoint = (RelationalTrackPoint) statusEntityFactory.createTrackPoint(report);
                             trackPoint.setFlight(flight);
                             trackPoint.setGeoCoordinates(convertPostGisToGeoCoordinates(rs.getString("geocoords")));
-                            trackPoint.setGroundSpeed(rs.getInt("groundspeed")); // FIXME: handle null
-                            trackPoint.setHeading(rs.getInt("heading")); // FIXME: handle null
-                            trackPoint.setQnh(BarometricPressure.fromInchesOfMercury((double) rs.getInt("qnhcinhg") / 100.0)); // FIXME: handle null
-                            trackPoint.setTransponderCode(rs.getInt("transpondercode")); // FIXME: handle null
+                            trackPoint.setGroundSpeed(negativeIfNull(rs, "groundspeed"));
+                            trackPoint.setHeading(negativeIfNull(rs, "heading"));
+                            trackPoint.setQnh(nullableBarometricPressureFromCentiInchesOfMercury(rs, "qnhcinhg"));
+                            trackPoint.setTransponderCode(negativeIfNull(rs, "transpondercode"));
                             trackPoint.markClean();
 
                             flight.addTrackPoint(trackPoint);
@@ -817,5 +817,35 @@ public class Database {
 
     private void executeBenchmarked(String name, Connection db, String sql, ExceptionalConsumer<PreparedStatement, SQLException> parameterSetter) throws SQLException {
         benchmark(name, SQLException.class, () -> execute(db, sql, parameterSetter));
+    }
+
+    private int negativeIfNull(ResultSet rs, String fieldName) throws SQLException {
+        int value = rs.getInt(fieldName);
+
+        if (rs.wasNull()) {
+            return -1;
+        }
+
+        return value;
+    }
+
+    private Duration nullableDurationOfMinutes(ResultSet rs, String fieldName) throws SQLException {
+        Duration value = Duration.ofMinutes(rs.getInt(fieldName));
+
+        if (rs.wasNull()) {
+            return null;
+        }
+
+        return value;
+    }
+
+    private BarometricPressure nullableBarometricPressureFromCentiInchesOfMercury(ResultSet rs, String fieldName) throws SQLException {
+        BarometricPressure value = BarometricPressure.fromInchesOfMercury((double) rs.getInt(fieldName) / 100.0);
+
+        if (rs.wasNull()) {
+            return null;
+        }
+
+        return value;
     }
 }
