@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.BarometricPressure;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FacilityType;
+import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightEvent;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightPlan;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightPlanType;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.GeoCoordinates;
@@ -178,7 +179,7 @@ public class Database {
             forEachWithCaches(db, tracker.getDirtyEntities(RelationalReport.class), RelationalReport::insert);
             forEach(db, tracker.getDirtyEntities(RelationalConnection.class), RelationalConnection::upsert);
             forEach(db, tracker.getDirtyEntities(RelationalFacility.class), RelationalFacility::insert);
-            forEach(db, tracker.getDirtyEntities(RelationalFlight.class), RelationalFlight::insert);
+            forEachWithCaches(db, tracker.getDirtyEntities(RelationalFlight.class), RelationalFlight::insert);
             forEach(db, tracker.getDirtyEntities(RelationalFlightPlan.class), RelationalFlightPlan::insert);
             forEach(db, tracker.getDirtyEntities(RelationalTrackPoint.class), RelationalTrackPoint::insert);
 
@@ -197,7 +198,7 @@ public class Database {
         }
     }
 
-    private void initializeCaches(Connection db) {
+    private void initializeCaches(Connection db) throws SQLException {
         if (caches != null) {
             throw new UnsupportedOperationException("caches must not be reused across transactions");
         }
@@ -234,6 +235,8 @@ public class Database {
             // and mixing up data would yield puzzling hard to explain permanent
             // errors in imported data.
             execute(db, "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+
+            initializeCaches(db);
 
             // Create temporary tables to pre-select rows to be loaded.
             execute(db, ""
@@ -614,9 +617,10 @@ public class Database {
 
             // read all track points of preselected flights
             query(db, ""
-                    + "SELECT flight_id, report_id, ST_AsText(geocoords) geocoords, heading, groundspeed, transpondercode, qnhcinhg "
-                    + "FROM trackpoints "
-                    + "WHERE flight_id IN (SELECT flight_id FROM _load_flights) ",
+                    + "SELECT tp.flight_id, tp.report_id, ST_AsText(geocoords) geocoords, heading, groundspeed, transpondercode, qnhcinhg, flightevent_id "
+                    + "FROM trackpoints tp "
+                    + "LEFT OUTER JOIN trackpoints_flightevents tpfe ON tpfe.flight_id = tp.flight_id AND tpfe.report_id = tp.report_id "
+                    + "WHERE tp.flight_id IN (SELECT flight_id FROM _load_flights) ",
                     rs -> {
                         int numTrackPoints = 0;
                         while (rs.next()) {
@@ -646,6 +650,16 @@ public class Database {
                             flight.addTrackPoint(trackPoint);
 
                             report.addFlight(flight);
+
+                            FlightEvent event = nullableFlightEvent(rs, "flightevent_id");
+                            if (event != null) {
+                                if (flight.isDirty()) {
+                                    throw new RuntimeException("flight " + flight.getDatabaseId() + " is marked dirty, unable to import flightevent");
+                                }
+
+                                flight.markEvent(trackPoint, event);
+                                flight.markClean();
+                            }
                         }
 
                         LOGGER.debug("read {} track points from database", numTrackPoints);
@@ -766,6 +780,8 @@ public class Database {
                     Duration.between(start, endPreselect).toMillis(),
                     Duration.between(endPreselect, end).toMillis()
             );
+
+            evictCaches();
         });
 
         if (!success) {
@@ -881,6 +897,16 @@ public class Database {
         }
 
         return value;
+    }
+
+    private FlightEvent nullableFlightEvent(ResultSet rs, String fieldName) throws SQLException {
+        int id = rs.getInt(fieldName);
+
+        if (rs.wasNull()) {
+            return null;
+        }
+
+        return caches.getFlightEvents().getEnum(id);
     }
 
     private PGInterval toPostgresInterval(Duration duration) throws SQLException {
