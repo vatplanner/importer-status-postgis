@@ -623,6 +623,7 @@ public class Database {
                     + "WHERE tp.flight_id IN (SELECT flight_id FROM _load_flights) ",
                     rs -> {
                         int numTrackPoints = 0;
+                        int numMarkedEvents = 0;
                         while (rs.next()) {
                             numTrackPoints++;
 
@@ -659,10 +660,12 @@ public class Database {
 
                                 flight.markEvent(trackPoint, event);
                                 flight.markClean();
+
+                                numMarkedEvents++;
                             }
                         }
 
-                        LOGGER.debug("read {} track points from database", numTrackPoints);
+                        LOGGER.debug("read {} track points from database, marked {} events", numTrackPoints, numMarkedEvents);
                     }
             );
 
