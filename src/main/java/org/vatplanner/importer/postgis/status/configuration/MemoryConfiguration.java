@@ -12,6 +12,7 @@ public class MemoryConfiguration {
 
     private int maxPercentageIncreaseSinceFirstImport;
     private int maxAbsoluteIncreaseSinceFirstImportMegaBytes;
+    private int exitCode;
 
     public int getMaxAbsoluteIncreaseSinceFirstImportMegaBytes() {
         return maxAbsoluteIncreaseSinceFirstImportMegaBytes;
@@ -30,6 +31,16 @@ public class MemoryConfiguration {
     public MemoryConfiguration setMaxPercentageIncreaseSinceFirstImport(int maxPercentageIncreaseSinceFirstImport) {
         LOGGER.debug("setting maxPercentageIncreaseSinceFirstImport to {}", maxPercentageIncreaseSinceFirstImport);
         this.maxPercentageIncreaseSinceFirstImport = maxPercentageIncreaseSinceFirstImport;
+        return this;
+    }
+
+    public int getExitCode() {
+        return exitCode;
+    }
+
+    public MemoryConfiguration setExitCode(int exitCode) {
+        LOGGER.debug("setting exitCode to {}", exitCode);
+        this.exitCode = exitCode;
         return this;
     }
 
