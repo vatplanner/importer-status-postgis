@@ -177,6 +177,7 @@ public class Configuration {
 
         setInteger(properties, "memory.maxAbsoluteIncreaseSinceFirstImportMegaBytes", config::setMaxAbsoluteIncreaseSinceFirstImportMegaBytes);
         setInteger(properties, "memory.maxPercentageIncreaseSinceFirstImport", config::setMaxPercentageIncreaseSinceFirstImport);
+        setInteger(properties, "memory.exitCode", config::setExitCode);
 
         return config;
     }
