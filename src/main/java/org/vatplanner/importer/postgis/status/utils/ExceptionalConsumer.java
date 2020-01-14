@@ -1,4 +1,4 @@
-package org.vatplanner.importer.postgis.status;
+package org.vatplanner.importer.postgis.status.utils;
 
 @FunctionalInterface
 public interface ExceptionalConsumer<T, EX extends Exception> {

@@ -1,5 +1,6 @@
 package org.vatplanner.importer.postgis.status;
 
+import org.vatplanner.importer.postgis.status.database.Database;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;

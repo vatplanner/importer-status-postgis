@@ -1,4 +1,4 @@
-package org.vatplanner.importer.postgis.status;
+package org.vatplanner.importer.postgis.status.configuration;
 
 import java.io.File;
 import java.io.FileReader;

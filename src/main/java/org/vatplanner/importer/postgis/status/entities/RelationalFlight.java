@@ -11,9 +11,9 @@ import org.vatplanner.dataformats.vatsimpublic.entities.status.Flight;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightEvent;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Member;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.TrackPoint;
-import org.vatplanner.importer.postgis.status.Caches;
+import org.vatplanner.importer.postgis.status.database.Caches;
 import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
-import org.vatplanner.importer.postgis.status.StrictEnumCache;
+import org.vatplanner.importer.postgis.status.database.StrictEnumCache;
 
 /**
  * {@link Flight} extended for exchange with PostGIS.

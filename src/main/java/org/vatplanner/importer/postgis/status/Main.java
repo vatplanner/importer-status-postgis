@@ -4,6 +4,8 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.client.RawDataFileClient;
+import org.vatplanner.importer.postgis.status.configuration.Configuration;
+import org.vatplanner.importer.postgis.status.database.Database;
 
 public class Main {
 

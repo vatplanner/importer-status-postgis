@@ -1,4 +1,4 @@
-package org.vatplanner.importer.postgis.status;
+package org.vatplanner.importer.postgis.status.configuration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

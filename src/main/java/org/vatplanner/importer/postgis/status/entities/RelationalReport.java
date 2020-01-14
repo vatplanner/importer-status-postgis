@@ -10,7 +10,7 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
-import org.vatplanner.importer.postgis.status.Caches;
+import org.vatplanner.importer.postgis.status.database.Caches;
 import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
 
 /**

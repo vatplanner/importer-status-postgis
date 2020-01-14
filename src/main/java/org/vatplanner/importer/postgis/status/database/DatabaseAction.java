@@ -1,4 +1,4 @@
-package org.vatplanner.importer.postgis.status;
+package org.vatplanner.importer.postgis.status.database;
 
 import java.sql.Connection;
 
