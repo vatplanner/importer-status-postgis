@@ -1,10 +1,11 @@
 package org.vatplanner.importer.postgis.status;
 
-import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.client.RawDataFileClient;
 import org.vatplanner.importer.postgis.status.configuration.Configuration;
+import org.vatplanner.importer.postgis.status.configuration.ImportConfiguration;
+import org.vatplanner.importer.postgis.status.configuration.MemoryConfiguration;
 import org.vatplanner.importer.postgis.status.database.Database;
 
 public class Main {
@@ -23,12 +24,12 @@ public class Main {
         RawDataFileClient archiveClient = new RawDataFileClient(config.getArchiveClientConfig());
         Database database = new Database(config.getDatabaseConfig());
 
-        int maxFilesPerChunk = 200; // TODO: configure
-        int maxFilesBeforeRestart = 1500; // TODO: configure
-        boolean allowImportOnEmptyDatabase = false; // TODO: configure
-        Instant emptyDatabaseEarliestFetchTime = Instant.MIN; // TODO: configure
-        double maxPercentageIncreaseSinceFirstImport = 200.0; // TODO: configure
-        double maxMemoryIncreaseSinceFirstImportMegaBytes = 500; // TODO: configure
+        ImportConfiguration importConfig = config.getImportConfig();
+        boolean allowImportOnEmptyDatabase = importConfig.isAllowImportOnEmptyDatabase();
+
+        MemoryConfiguration memoryConfig = config.getMemoryConfig();
+        int maxPercentageIncreaseSinceFirstImport = memoryConfig.getMaxPercentageIncreaseSinceFirstImport();
+        int maxMemoryIncreaseSinceFirstImportMegaBytes = memoryConfig.getMaxAbsoluteIncreaseSinceFirstImportMegaBytes();
 
         Runtime runtime = Runtime.getRuntime();
         long maxMemory = runtime.maxMemory();
@@ -37,12 +38,12 @@ public class Main {
         while (true) {
             StatusImport importer = new StatusImport(archiveClient, database);
             importer.setAllowImportOnEmptyDatabase(allowImportOnEmptyDatabase);
-            importer.setEarliestFetchTimestampEmptyDatabase(emptyDatabaseEarliestFetchTime);
+            importer.setEarliestFetchTimestampEmptyDatabase(importConfig.getEmptyDatabaseEarliestFetchTime());
             allowImportOnEmptyDatabase = false;
 
-            int remainingFilesBeforeRestart = maxFilesBeforeRestart;
+            int remainingFilesBeforeRestart = importConfig.getMaxFilesBeforeRestart();
             while (remainingFilesBeforeRestart > 0) {
-                int numImported = importer.importNextChunk(Integer.min(maxFilesPerChunk, remainingFilesBeforeRestart));
+                int numImported = importer.importNextChunk(Integer.min(importConfig.getMaxFilesPerChunk(), remainingFilesBeforeRestart));
                 if (numImported == 0) {
                     LOGGER.info("no further data, shutting down");
                     System.exit(0);
@@ -53,7 +54,7 @@ public class Main {
                 System.gc();
             }
 
-            LOGGER.info("maximum number of files ({}) has been imported, restarting clean to avoid OOM", maxFilesBeforeRestart);
+            LOGGER.info("maximum number of files ({}) has been imported, restarting clean to avoid OOM", importConfig.getMaxFilesBeforeRestart());
 
             // try to clear as much memory as possible
             importer = null;
@@ -87,7 +88,7 @@ public class Main {
                         "permanent memory usage has increased by {} MB / {}% since application start which exceeds configured threshold of {}% - quitting to avoid OOM early, restart to continue import",
                         memoryIncreaseSinceFirstImportMegaBytes,
                         Math.round(percentIncreaseSinceFirstImport),
-                        Math.round(maxPercentageIncreaseSinceFirstImport)
+                        maxPercentageIncreaseSinceFirstImport
                 );
                 System.exit(1);
             }

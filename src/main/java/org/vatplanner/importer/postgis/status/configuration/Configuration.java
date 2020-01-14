@@ -5,6 +5,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.time.Instant;
 import java.util.Properties;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
@@ -20,6 +21,8 @@ public class Configuration {
 
     private final DatabaseConfiguration databaseConfig;
     private final ClientConfiguration archiveClientConfig;
+    private final ImportConfiguration importConfig;
+    private final MemoryConfiguration memoryConfig;
 
     private static final String LOCAL_PROPERTIES_DIRECTORY_NAME = ".vatplanner";
     private static final String LOCAL_PROPERTIES_FILE_NAME = "importer-status-postgis.properties";
@@ -44,6 +47,8 @@ public class Configuration {
 
         databaseConfig = parseDatabaseConfiguration(properties);
         archiveClientConfig = parseArchiveClientConfiguration(properties);
+        importConfig = parseImportConfiguration(properties);
+        memoryConfig = parseMemoryConfiguration(properties);
     }
 
     /**
@@ -121,6 +126,14 @@ public class Configuration {
         return databaseConfig;
     }
 
+    public ImportConfiguration getImportConfig() {
+        return importConfig;
+    }
+
+    public MemoryConfiguration getMemoryConfig() {
+        return memoryConfig;
+    }
+
     private DatabaseConfiguration parseDatabaseConfiguration(Properties properties) {
         DatabaseConfiguration config = new DatabaseConfiguration();
 
@@ -148,11 +161,39 @@ public class Configuration {
         return config;
     }
 
+    private ImportConfiguration parseImportConfiguration(Properties properties) {
+        ImportConfiguration config = new ImportConfiguration();
+
+        setInteger(properties, "import.maxFilesPerChunk", config::setMaxFilesPerChunk);
+        setInteger(properties, "import.maxFilesBeforeRestart", config::setMaxFilesBeforeRestart);
+        setBoolean(properties, "import.allowEmptyDatabase", config::setAllowImportOnEmptyDatabase);
+        setInstant(properties, "import.emptyDatabaseEarliestFetchTime", config::setEmptyDatabaseEarliestFetchTime);
+
+        return config;
+    }
+
+    private MemoryConfiguration parseMemoryConfiguration(Properties properties) {
+        MemoryConfiguration config = new MemoryConfiguration();
+
+        setInteger(properties, "memory.maxAbsoluteIncreaseSinceFirstImportMegaBytes", config::setMaxAbsoluteIncreaseSinceFirstImportMegaBytes);
+        setInteger(properties, "memory.maxPercentageIncreaseSinceFirstImport", config::setMaxPercentageIncreaseSinceFirstImport);
+
+        return config;
+    }
+
     private void setString(Properties properties, String propertiesKey, Consumer<String> consumer) {
         consumer.accept(properties.getProperty(propertiesKey));
     }
 
     private void setInteger(Properties properties, String propertiesKey, Consumer<Integer> consumer) {
         consumer.accept(Integer.parseInt(properties.getProperty(propertiesKey)));
+    }
+
+    private void setInstant(Properties properties, String propertiesKey, Consumer<Instant> consumer) {
+        consumer.accept(Instant.parse(properties.getProperty(propertiesKey)));
+    }
+
+    private void setBoolean(Properties properties, String propertiesKey, Consumer<Boolean> consumer) {
+        consumer.accept(Boolean.parseBoolean(properties.getProperty(propertiesKey)));
     }
 }
