@@ -143,6 +143,7 @@ public class Configuration {
         setString(properties, "database.password", config::setPassword);
         setString(properties, "database.dbname", config::setDatabaseName);
         setString(properties, "database.schema", config::setSchema);
+        setString(properties, "database.unixSocketPath", config::setUnixSocketPath);
 
         return config;
     }

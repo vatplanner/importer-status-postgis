@@ -16,6 +16,7 @@ public class DatabaseConfiguration {
     private String password;
     private String databaseName;
     private String schema;
+    private String unixSocketPath;
 
     public String getHost() {
         return host;
@@ -74,6 +75,20 @@ public class DatabaseConfiguration {
     public DatabaseConfiguration setSchema(String schema) {
         LOGGER.debug("setting schema to {}", schema);
         this.schema = schema;
+        return this;
+    }
+
+    public String getUnixSocketPath() {
+        return unixSocketPath;
+    }
+
+    public boolean hasUnixSocketPath() {
+        return (unixSocketPath != null) && !unixSocketPath.trim().isEmpty();
+    }
+
+    public DatabaseConfiguration setUnixSocketPath(String unixSocketPath) {
+        LOGGER.debug("setting unixSocketPath to {}", unixSocketPath);
+        this.unixSocketPath = unixSocketPath;
         return this;
     }
 

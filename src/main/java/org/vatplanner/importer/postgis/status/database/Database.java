@@ -19,6 +19,7 @@ import java.util.SortedSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.ws.Holder;
+import org.newsclub.net.unix.socketfactory.PostgresqlAFUNIXSocketFactory;
 import org.postgresql.util.PGInterval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +73,22 @@ public class Database {
     private static final Duration FLIGHT_PLAN_RETENTION_TIME = Duration.ofHours(2); // TODO: make configurable
 
     public Database(DatabaseConfiguration config) {
-        url = "jdbc:postgresql://" + config.getHost() + ":" + config.getPort() + "/" + config.getDatabaseName();
+        StringBuilder urlBuilder = new StringBuilder();
+        urlBuilder.append("jdbc:postgresql://");
+        urlBuilder.append(config.getHost());
+        urlBuilder.append(":");
+        urlBuilder.append(config.getPort());
+        urlBuilder.append("/");
+        urlBuilder.append(config.getDatabaseName());
+
+        if (config.hasUnixSocketPath()) {
+            urlBuilder.append("?socketFactory=");
+            urlBuilder.append(PostgresqlAFUNIXSocketFactory.class.getCanonicalName());
+            urlBuilder.append("&socketFactoryArg=");
+            urlBuilder.append(config.getUnixSocketPath());
+        }
+
+        url = urlBuilder.toString();
 
         properties = new Properties();
         properties.setProperty("user", config.getUsername());
