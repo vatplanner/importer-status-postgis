@@ -60,10 +60,6 @@ public class RelationalFacility extends Facility implements DirtyMark {
         tracker.recordAsClean(RelationalFacility.class, this);
     }
 
-    public boolean hasRecordInDatabase() {
-        return hasRecordInDatabase;
-    }
-
     public RelationalFacility setHasRecordInDatabase(boolean hasRecordInDatabase) {
         this.hasRecordInDatabase = hasRecordInDatabase;
         return this;

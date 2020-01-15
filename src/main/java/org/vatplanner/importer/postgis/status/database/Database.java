@@ -1,10 +1,5 @@
 package org.vatplanner.importer.postgis.status.database;
 
-import org.vatplanner.importer.postgis.status.utils.ExceptionalConsumer;
-import org.vatplanner.importer.postgis.status.utils.ExceptionalTriConsumer;
-import org.vatplanner.importer.postgis.status.utils.ExceptionalRunnable;
-import org.vatplanner.importer.postgis.status.utils.ExceptionalBiConsumer;
-import org.vatplanner.importer.postgis.status.configuration.DatabaseConfiguration;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -38,12 +33,17 @@ import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.StatusEntityFactory;
 import org.vatplanner.dataformats.vatsimpublic.graph.GraphIndex;
 import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
+import org.vatplanner.importer.postgis.status.configuration.DatabaseConfiguration;
 import org.vatplanner.importer.postgis.status.entities.RelationalConnection;
 import org.vatplanner.importer.postgis.status.entities.RelationalFacility;
 import org.vatplanner.importer.postgis.status.entities.RelationalFlight;
 import org.vatplanner.importer.postgis.status.entities.RelationalFlightPlan;
 import org.vatplanner.importer.postgis.status.entities.RelationalReport;
 import org.vatplanner.importer.postgis.status.entities.RelationalTrackPoint;
+import org.vatplanner.importer.postgis.status.utils.ExceptionalBiConsumer;
+import org.vatplanner.importer.postgis.status.utils.ExceptionalConsumer;
+import org.vatplanner.importer.postgis.status.utils.ExceptionalRunnable;
+import org.vatplanner.importer.postgis.status.utils.ExceptionalTriConsumer;
 import org.vatplanner.importer.postgis.status.utils.TimeHelpers;
 import static org.vatplanner.importer.postgis.status.utils.TimeHelpers.isBetween;
 
@@ -482,6 +482,7 @@ public class Database {
                             }
 
                             RelationalFacility facility = (RelationalFacility) statusEntityFactory.createFacility(rs.getString("name"));
+                            facility.setHasRecordInDatabase(true);
                             facility.setConnection(connection);
 
                             // FIXME: it may actually be required to store the actual values in DB although irrelevant after import, check graph import match logic
