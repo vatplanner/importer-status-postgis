@@ -313,24 +313,6 @@ public class Database {
                     + "   ) "
                     + ") ");
 
-            // select additional reports to load partially
-            // referenced by selected connections
-            executeBenchmarked("PRESELECT reports (incomplete) / connections, first report", db, ""
-                    + "INSERT INTO _load_reports "
-                    + "SELECT c.firstreport_id, false "
-                    + "FROM _load_connections _lc "
-                    + "LEFT OUTER JOIN connections c ON _lc.connection_id = c.connection_id "
-                    + "ON CONFLICT DO NOTHING "
-            );
-
-            executeBenchmarked("PRESELECT reports (incomplete) / connections, last report", db, ""
-                    + "INSERT INTO _load_reports "
-                    + "SELECT c.lastreport_id, false "
-                    + "FROM _load_connections _lc "
-                    + "LEFT OUTER JOIN connections c ON _lc.connection_id = c.connection_id "
-                    + "ON CONFLICT DO NOTHING "
-            );
-
             // select flights to load
             // referenced by one or more connections
             executeBenchmarked("PRESELECT flights / connections", db, ""
@@ -374,6 +356,24 @@ public class Database {
                     + "SELECT connection_id "
                     + "FROM connections_flights cf "
                     + "WHERE cf.flight_id IN (SELECT flight_id FROM _load_flights) "
+                    + "ON CONFLICT DO NOTHING "
+            );
+
+            // select additional reports to load partially
+            // referenced by selected connections
+            executeBenchmarked("PRESELECT reports (incomplete) / connections, first report", db, ""
+                    + "INSERT INTO _load_reports "
+                    + "SELECT c.firstreport_id, false "
+                    + "FROM _load_connections _lc "
+                    + "LEFT OUTER JOIN connections c ON _lc.connection_id = c.connection_id "
+                    + "ON CONFLICT DO NOTHING "
+            );
+
+            executeBenchmarked("PRESELECT reports (incomplete) / connections, last report", db, ""
+                    + "INSERT INTO _load_reports "
+                    + "SELECT c.lastreport_id, false "
+                    + "FROM _load_connections _lc "
+                    + "LEFT OUTER JOIN connections c ON _lc.connection_id = c.connection_id "
                     + "ON CONFLICT DO NOTHING "
             );
 
