@@ -18,7 +18,6 @@ import java.util.Properties;
 import java.util.SortedSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.xml.ws.Holder;
 import org.newsclub.net.unix.socketfactory.PostgresqlAFUNIXSocketFactory;
 import org.postgresql.util.PGInterval;
 import org.slf4j.Logger;
@@ -45,6 +44,7 @@ import org.vatplanner.importer.postgis.status.utils.ExceptionalBiConsumer;
 import org.vatplanner.importer.postgis.status.utils.ExceptionalConsumer;
 import org.vatplanner.importer.postgis.status.utils.ExceptionalRunnable;
 import org.vatplanner.importer.postgis.status.utils.ExceptionalTriConsumer;
+import org.vatplanner.importer.postgis.status.utils.Holder;
 import org.vatplanner.importer.postgis.status.utils.TimeHelpers;
 import static org.vatplanner.importer.postgis.status.utils.TimeHelpers.isBetween;
 
