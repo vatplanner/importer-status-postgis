@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.BarometricPressure;
@@ -33,7 +34,9 @@ public class RelationalTrackPoint extends TrackPoint implements DirtyMark {
     @Override
     public TrackPoint setFlight(Flight flight) {
         if (getFlight() != null) {
-            throw new UnsupportedOperationException("trackpoints cannot change flights because database primary key would change");
+            throw new UnsupportedOperationException(
+                "trackpoints cannot change flights because database primary key would change" //
+            );
         }
 
         markDirty();
@@ -99,9 +102,14 @@ public class RelationalTrackPoint extends TrackPoint implements DirtyMark {
         int transponderCode = getTransponderCode();
         BarometricPressure qnh = getQnh();
 
-        LOGGER.trace("INSERT trackpoint: report recorded {}, callsign {}, position {}, heading {}, GS {}, xpdr {}, QNH {}", report.getRecordTime(), flight.getCallsign(), coords, heading, groundSpeed, transponderCode, qnh);
+        LOGGER.trace(
+            "INSERT trackpoint: report recorded {}, callsign {}, position {}, heading {}, GS {}, xpdr {}, QNH {}",
+            report.getRecordTime(), flight.getCallsign(), coords, heading, groundSpeed, transponderCode, qnh //
+        );
 
-        PreparedStatement ps = db.prepareStatement("INSERT INTO trackpoints (report_id, flight_id, geocoords, heading, groundspeed, transpondercode, qnhcinhg, qnhhpa) VALUES (?, ?, ST_MakePoint(?, ?, ?), ?, ?, ?, ?, ?)");
+        PreparedStatement ps = db.prepareStatement(
+            "INSERT INTO trackpoints (report_id, flight_id, geocoords, heading, groundspeed, transpondercode, qnhcinhg, qnhhpa) VALUES (?, ?, ST_MakePoint(?, ?, ?), ?, ?, ?, ?, ?)" //
+        );
         ps.setInt(1, report.getDatabaseId());
         ps.setInt(2, flight.getDatabaseId());
         ps.setDouble(3, coords.getLongitude());

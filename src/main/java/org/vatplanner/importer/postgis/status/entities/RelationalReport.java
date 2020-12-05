@@ -7,11 +7,13 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Report;
-import org.vatplanner.importer.postgis.status.database.Caches;
+import org.vatplanner.dataformats.vatsimpublic.parser.NetworkInformation;
 import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
+import org.vatplanner.importer.postgis.status.database.Caches;
 
 /**
  * {@link Report} extended for exchange with PostGIS.
@@ -45,12 +47,12 @@ public class RelationalReport extends Report implements DirtyMark {
     }
 
     /**
-     * Returns the timestamp when the source data file was fetched (requested)
-     * from VATSIM servers.
+     * Returns the timestamp when the source data file was fetched (requested) from
+     * VATSIM servers.
      *
      * <p>
-     * This is an extra field to keep track of application-specific but
-     * generally useful meta-information.
+     * This is an extra field to keep track of application-specific but generally
+     * useful meta-information.
      * </p>
      *
      * @return timestamp of fetching the source data file
@@ -65,13 +67,13 @@ public class RelationalReport extends Report implements DirtyMark {
     }
 
     /**
-     * Returns the URL originally requested to retrieve the source data file.
-     * This should usually be a URL listed in the {@link NetworkInformation}
-     * used at time of request.
+     * Returns the URL originally requested to retrieve the source data file. This
+     * should usually be a URL listed in the {@link NetworkInformation} used at time
+     * of request.
      *
      * <p>
-     * This is an extra field to keep track of application-specific but
-     * generally useful meta-information.
+     * This is an extra field to keep track of application-specific but generally
+     * useful meta-information.
      * </p>
      *
      * @return URL data file was originally requested from (before redirects)
@@ -91,8 +93,8 @@ public class RelationalReport extends Report implements DirtyMark {
      * {@link NetworkInformation}.
      *
      * <p>
-     * This is an extra field to keep track of application-specific but
-     * generally useful meta-information.
+     * This is an extra field to keep track of application-specific but generally
+     * useful meta-information.
      * </p>
      *
      * @return URL data file was actually retrieved from (after redirects)
@@ -110,8 +112,8 @@ public class RelationalReport extends Report implements DirtyMark {
      * Returns the identification of the cluster node who fetched the data file.
      *
      * <p>
-     * This is an extra field to keep track of application-specific but
-     * generally useful meta-information.
+     * This is an extra field to keep track of application-specific but generally
+     * useful meta-information.
      * </p>
      *
      * @return ID of cluster node who fetched the data file
@@ -129,8 +131,8 @@ public class RelationalReport extends Report implements DirtyMark {
      * Returns the timestamp when a data file was parsed/processed.
      *
      * <p>
-     * This is an extra field to keep track of application-specific but
-     * generally useful meta-information.
+     * This is an extra field to keep track of application-specific but generally
+     * useful meta-information.
      * </p>
      *
      * @return timestamp of parsing/processing data file
@@ -201,7 +203,9 @@ public class RelationalReport extends Report implements DirtyMark {
 
         // TODO: record number of skipped clients
         // TODO: record number of reconstructed flights?
-        PreparedStatement ps = db.prepareStatement("INSERT INTO reports (recordtime, connectedclients, fetchtime, fetchnode_id, fetchurlrequested_id, fetchurlretrieved_id, parsetime, parserrejectedlines) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING report_id");
+        PreparedStatement ps = db.prepareStatement(
+            "INSERT INTO reports (recordtime, connectedclients, fetchtime, fetchnode_id, fetchurlrequested_id, fetchurlretrieved_id, parsetime, parserrejectedlines) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING report_id" //
+        );
         ps.setTimestamp(1, Timestamp.from(getRecordTime()));
         ps.setInt(2, getNumberOfConnectedClients());
         ps.setTimestamp(3, Timestamp.from(getFetchTime()));

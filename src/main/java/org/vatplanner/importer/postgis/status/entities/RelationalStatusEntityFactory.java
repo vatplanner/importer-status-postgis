@@ -1,6 +1,7 @@
 package org.vatplanner.importer.postgis.status.entities;
 
 import java.time.Instant;
+
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Connection;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Facility;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FacilityMessage;

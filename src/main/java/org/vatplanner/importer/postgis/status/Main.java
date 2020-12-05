@@ -2,6 +2,7 @@ package org.vatplanner.importer.postgis.status;
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.client.RawDataFileClient;
@@ -60,7 +61,12 @@ public class Main {
 
             int remainingFilesBeforeRestart = importConfig.getMaxFilesBeforeRestart();
             while (remainingFilesBeforeRestart > 0) {
-                int numImported = importer.importNextChunk(Integer.min(importConfig.getMaxFilesPerChunk(), remainingFilesBeforeRestart));
+                int numImported = importer.importNextChunk(
+                    Integer.min(
+                        importConfig.getMaxFilesPerChunk(),
+                        remainingFilesBeforeRestart //
+                    ) //
+                );
                 if (numImported == 0) {
                     LOGGER.info("no further data, shutting down");
                     System.exit(0);
@@ -73,7 +79,8 @@ public class Main {
                 terminateIfEmptyDatabaseIsAllowed();
             }
 
-            LOGGER.info("maximum number of files ({}) has been imported, restarting clean to avoid OOM", importConfig.getMaxFilesBeforeRestart());
+            LOGGER.info("maximum number of files ({}) has been imported, restarting clean to avoid OOM",
+                importConfig.getMaxFilesBeforeRestart());
 
             // try to clear as much memory as possible
             importer = null;

@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Connection;
@@ -70,9 +71,14 @@ public class RelationalConnection extends Connection implements DirtyMark {
         RelationalReport firstReport = (RelationalReport) getFirstReport();
         RelationalReport lastReport = (RelationalReport) getLastReport();
 
-        LOGGER.trace("INSERT connection: logon {}, first report {}, last report {}", getLogonTime(), firstReport.getRecordTime(), lastReport.getRecordTime());
+        LOGGER.trace(
+            "INSERT connection: logon {}, first report {}, last report {}",
+            getLogonTime(), firstReport.getRecordTime(), lastReport.getRecordTime() //
+        );
 
-        PreparedStatement ps = db.prepareStatement("INSERT INTO connections (vatsimid, logontime, firstreport_id, lastreport_id) VALUES (?, ?, ?, ?) RETURNING connection_id");
+        PreparedStatement ps = db.prepareStatement(
+            "INSERT INTO connections (vatsimid, logontime, firstreport_id, lastreport_id) VALUES (?, ?, ?, ?) RETURNING connection_id" //
+        );
         ps.setInt(1, getMember().getVatsimId());
         ps.setTimestamp(2, Timestamp.from(getLogonTime()));
         ps.setInt(3, firstReport.getDatabaseId());
@@ -98,9 +104,14 @@ public class RelationalConnection extends Connection implements DirtyMark {
         RelationalReport firstReport = (RelationalReport) getFirstReport();
         RelationalReport lastReport = (RelationalReport) getLastReport();
 
-        LOGGER.trace("UPDATE connection: ID {}, logon {}, first report {}, last report {}", getDatabaseId(), getLogonTime(), firstReport.getRecordTime(), lastReport.getRecordTime());
+        LOGGER.trace(
+            "UPDATE connection: ID {}, logon {}, first report {}, last report {}",
+            getDatabaseId(), getLogonTime(), firstReport.getRecordTime(), lastReport.getRecordTime() //
+        );
 
-        PreparedStatement ps = db.prepareStatement("UPDATE connections SET vatsimid=?, logontime=?, firstreport_id=?, lastreport_id=? WHERE connection_id=?");
+        PreparedStatement ps = db.prepareStatement(
+            "UPDATE connections SET vatsimid=?, logontime=?, firstreport_id=?, lastreport_id=? WHERE connection_id=?" //
+        );
         ps.setInt(1, getMember().getVatsimId());
         ps.setTimestamp(2, Timestamp.from(getLogonTime()));
         ps.setInt(3, firstReport.getDatabaseId());

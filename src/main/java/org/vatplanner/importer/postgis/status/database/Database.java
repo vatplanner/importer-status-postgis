@@ -1,5 +1,7 @@
 package org.vatplanner.importer.postgis.status.database;
 
+import static org.vatplanner.importer.postgis.status.utils.TimeHelpers.isBetween;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -18,6 +20,7 @@ import java.util.Properties;
 import java.util.SortedSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import org.newsclub.net.unix.socketfactory.PostgresqlAFUNIXSocketFactory;
 import org.postgresql.util.PGInterval;
 import org.slf4j.Logger;
@@ -46,7 +49,6 @@ import org.vatplanner.importer.postgis.status.utils.ExceptionalRunnable;
 import org.vatplanner.importer.postgis.status.utils.ExceptionalTriConsumer;
 import org.vatplanner.importer.postgis.status.utils.Holder;
 import org.vatplanner.importer.postgis.status.utils.TimeHelpers;
-import static org.vatplanner.importer.postgis.status.utils.TimeHelpers.isBetween;
 
 /**
  * Provides methods to save to and load from a PostGIS database.
@@ -65,7 +67,9 @@ public class Database {
     private static final int DUMMY_FACILITY_FREQUENCY_KILOHERTZ = 120000;
 
     private static final String SUB_PATTERN_DOUBLE = "(-?[0-9]+(?:\\.[0-9]+|))";
-    private static final Pattern PATTERN_POSTGIS_POINTZ = Pattern.compile("^POINT Z \\(" + SUB_PATTERN_DOUBLE + " " + SUB_PATTERN_DOUBLE + " " + SUB_PATTERN_DOUBLE + "\\)$");
+    private static final Pattern PATTERN_POSTGIS_POINTZ = Pattern.compile(
+        "^POINT Z \\(" + SUB_PATTERN_DOUBLE + " " + SUB_PATTERN_DOUBLE + " " + SUB_PATTERN_DOUBLE + "\\)$" //
+    );
     private static final int PATTERN_POSTGIS_POINTZ_LONGITUDE = 1;
     private static final int PATTERN_POSTGIS_POINTZ_LATITUDE = 2;
     private static final int PATTERN_POSTGIS_POINTZ_Z = 3;
@@ -181,8 +185,8 @@ public class Database {
 
     private void query(Connection db, String sql, ExceptionalConsumer<ResultSet, Exception> resultSetConsumer) throws Exception {
         try (
-                Statement stmt = db.createStatement();
-                ResultSet rs = stmt.executeQuery(sql);) {
+            Statement stmt = db.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);) {
             resultSetConsumer.accept(rs);
         }
     }
@@ -262,71 +266,70 @@ public class Database {
 
             // Create temporary tables to pre-select rows to be loaded.
             execute(db, ""
-                    + "CREATE TEMPORARY TABLE _load_reports ( "
-                    + "    report_id INT, "
-                    + "    complete BOOL, "
-                    + "    PRIMARY KEY ( report_id ) "
-                    + ") ");
+                + "CREATE TEMPORARY TABLE _load_reports ( "
+                + "    report_id INT, "
+                + "    complete BOOL, "
+                + "    PRIMARY KEY ( report_id ) "
+                + ") ");
 
             execute(db, ""
-                    + "CREATE TEMPORARY TABLE _load_connections ( "
-                    + "    connection_id INT, "
-                    + "    PRIMARY KEY ( connection_id ) "
-                    + ") "
-            );
+                + "CREATE TEMPORARY TABLE _load_connections ( "
+                + "    connection_id INT, "
+                + "    PRIMARY KEY ( connection_id ) "
+                + ") ");
 
             execute(db, ""
-                    + "CREATE TEMPORARY TABLE _load_flights ( "
-                    + "    flight_id INT, "
-                    + "    PRIMARY KEY ( flight_id ) "
-                    + ") "
-            );
+                + "CREATE TEMPORARY TABLE _load_flights ( "
+                + "    flight_id INT, "
+                + "    PRIMARY KEY ( flight_id ) "
+                + ") ");
 
             // select reports to load completely
             // based on fetch time
             executeBenchmarked("PRESELECT reports (complete) / fetch time", db, ""
-                    + "INSERT INTO _load_reports "
-                    + "SELECT report_id, true "
-                    + "FROM reports "
-                    + "WHERE fetchtime >= ? ",
-                    ps -> ps.setTimestamp(1, Timestamp.from(earliestRecordTimestamp))
-            );
+                + "INSERT INTO _load_reports "
+                + "SELECT report_id, true "
+                + "FROM reports "
+                + "WHERE fetchtime >= ? ",
+                ps -> ps.setTimestamp(1, Timestamp.from(earliestRecordTimestamp)));
 
             // select connections to load
             // connections within record time span of selected complete reports
             executeBenchmarked("PRESELECT connections / complete reports", db, ""
-                    + "INSERT INTO _load_connections "
-                    + "SELECT c.connection_id "
-                    + "FROM connections c "
-                    + "LEFT OUTER JOIN reports rf ON c.firstreport_id = rf.report_id "
-                    + "LEFT OUTER JOIN reports rl ON c.lastreport_id = rl.report_id "
-                    + "WHERE (rf.recordtime, rl.recordtime) OVERLAPS ( "
-                    + "   (SELECT MIN(r.recordtime) "
-                    + "    FROM _load_reports _lr "
-                    + "    LEFT OUTER JOIN reports r ON r.report_id = _lr.report_id "
-                    + "    WHERE _lr.complete = true "
-                    + "	  ), "
-                    + "   (SELECT MAX(r.recordtime) + INTERVAL '1 second' "
-                    + "	   FROM _load_reports _lr "
-                    + "	   LEFT OUTER JOIN reports r ON r.report_id = _lr.report_id "
-                    + "    WHERE _lr.complete = true "
-                    + "   ) "
-                    + ") ");
+                + "INSERT INTO _load_connections "
+                + "SELECT c.connection_id "
+                + "FROM connections c "
+                + "LEFT OUTER JOIN reports rf ON c.firstreport_id = rf.report_id "
+                + "LEFT OUTER JOIN reports rl ON c.lastreport_id = rl.report_id "
+                + "WHERE (rf.recordtime, rl.recordtime) OVERLAPS ( "
+                + "   (SELECT MIN(r.recordtime) "
+                + "    FROM _load_reports _lr "
+                + "    LEFT OUTER JOIN reports r ON r.report_id = _lr.report_id "
+                + "    WHERE _lr.complete = true "
+                + "	  ), "
+                + "   (SELECT MAX(r.recordtime) + INTERVAL '1 second' "
+                + "	   FROM _load_reports _lr "
+                + "	   LEFT OUTER JOIN reports r ON r.report_id = _lr.report_id "
+                + "    WHERE _lr.complete = true "
+                + "   ) "
+                + ") ");
 
             // select flights to load
             // referenced by one or more connections
             executeBenchmarked("PRESELECT flights / connections", db, ""
-                    + "INSERT INTO _load_flights "
-                    + "SELECT DISTINCT flight_id "
-                    + "FROM connections_flights cf "
-                    + "WHERE cf.connection_id IN (SELECT connection_id FROM _load_connections) "
-            );
+                + "INSERT INTO _load_flights "
+                + "SELECT DISTINCT flight_id "
+                + "FROM connections_flights cf "
+                + "WHERE cf.connection_id IN (SELECT connection_id FROM _load_connections) ");
 
             // select flights to load
             // referenced by flight plans
             // with maximum theoretical (not actual) retention time
             // within timespan of reports preselected for complete import
-            executeBenchmarked("PRESELECT flights / flight plans / complete reports within maximum retention time " + FLIGHT_PLAN_RETENTION_TIME, db, ""
+            executeBenchmarked(
+                "PRESELECT flights / flight plans / complete reports within maximum retention time "
+                    + FLIGHT_PLAN_RETENTION_TIME,
+                db, ""
                     + "INSERT INTO _load_flights "
                     + "SELECT DISTINCT flight_id "
                     + "FROM flightplans fp "
@@ -344,370 +347,403 @@ public class Database {
                     + "   ) "
                     + ") "
                     + "ON CONFLICT DO NOTHING ",
-                    ps -> ps.setObject(1, toPostgresInterval(FLIGHT_PLAN_RETENTION_TIME))
-            );
+                ps -> ps.setObject(1, toPostgresInterval(FLIGHT_PLAN_RETENTION_TIME)));
 
             // select additional connections to load
             // referenced by selected flights
             // (this is required because selecting flights by connections adds
             // new dependencies back to even more connections)
             executeBenchmarked("PRESELECT connections / flights", db, ""
-                    + "INSERT INTO _load_connections "
-                    + "SELECT connection_id "
-                    + "FROM connections_flights cf "
-                    + "WHERE cf.flight_id IN (SELECT flight_id FROM _load_flights) "
-                    + "ON CONFLICT DO NOTHING "
-            );
+                + "INSERT INTO _load_connections "
+                + "SELECT connection_id "
+                + "FROM connections_flights cf "
+                + "WHERE cf.flight_id IN (SELECT flight_id FROM _load_flights) "
+                + "ON CONFLICT DO NOTHING ");
 
             // select additional reports to load partially
             // referenced by selected connections
             executeBenchmarked("PRESELECT reports (incomplete) / connections, first report", db, ""
-                    + "INSERT INTO _load_reports "
-                    + "SELECT c.firstreport_id, false "
-                    + "FROM _load_connections _lc "
-                    + "LEFT OUTER JOIN connections c ON _lc.connection_id = c.connection_id "
-                    + "ON CONFLICT DO NOTHING "
-            );
+                + "INSERT INTO _load_reports "
+                + "SELECT c.firstreport_id, false "
+                + "FROM _load_connections _lc "
+                + "LEFT OUTER JOIN connections c ON _lc.connection_id = c.connection_id "
+                + "ON CONFLICT DO NOTHING ");
 
             executeBenchmarked("PRESELECT reports (incomplete) / connections, last report", db, ""
-                    + "INSERT INTO _load_reports "
-                    + "SELECT c.lastreport_id, false "
-                    + "FROM _load_connections _lc "
-                    + "LEFT OUTER JOIN connections c ON _lc.connection_id = c.connection_id "
-                    + "ON CONFLICT DO NOTHING "
-            );
+                + "INSERT INTO _load_reports "
+                + "SELECT c.lastreport_id, false "
+                + "FROM _load_connections _lc "
+                + "LEFT OUTER JOIN connections c ON _lc.connection_id = c.connection_id "
+                + "ON CONFLICT DO NOTHING ");
 
             // select additional reports to load partially
             // referenced by flight plans
             // referenced by selected flights
             executeBenchmarked("PRESELECT reports (incomplete) / flight plans / flights", db, ""
-                    + "INSERT INTO _load_reports "
-                    + "SELECT firstseen_report_id, false "
-                    + "FROM flightplans fp "
-                    + "LEFT OUTER JOIN flights f ON f.flight_id = fp.flight_id "
-                    + "WHERE fp.flight_id IN (SELECT flight_id FROM _load_flights) "
-                    + "ON CONFLICT DO NOTHING "
-            );
+                + "INSERT INTO _load_reports "
+                + "SELECT firstseen_report_id, false "
+                + "FROM flightplans fp "
+                + "LEFT OUTER JOIN flights f ON f.flight_id = fp.flight_id "
+                + "WHERE fp.flight_id IN (SELECT flight_id FROM _load_flights) "
+                + "ON CONFLICT DO NOTHING ");
 
             // select additional reports to load partially
             // referenced by trackpoints
             // referenced by selected flights
             executeBenchmarked("PRESELECT reports (incomplete) / trackpoints / flights", db, ""
-                    + "INSERT INTO _load_reports "
-                    + "SELECT report_id, false "
-                    + "FROM trackpoints tp "
-                    + "LEFT OUTER JOIN flights f ON f.flight_id = tp.flight_id "
-                    + "WHERE tp.flight_id IN (SELECT flight_id FROM _load_flights) "
-                    + "ON CONFLICT DO NOTHING "
-            );
+                + "INSERT INTO _load_reports "
+                + "SELECT report_id, false "
+                + "FROM trackpoints tp "
+                + "LEFT OUTER JOIN flights f ON f.flight_id = tp.flight_id "
+                + "WHERE tp.flight_id IN (SELECT flight_id FROM _load_flights) "
+                + "ON CONFLICT DO NOTHING ");
 
             Instant endPreselect = Instant.now();
 
             // read all preselected reports
             Map<Integer, RelationalReport> reportsById = new HashMap<>();
             query(db, ""
-                    + "SELECT r.report_id, recordtime, connectedclients, fetchtime, fureq.url fetchurlrequested, furet.url fetchurlretrieved, fn.name fetchnode, parsetime, parserrejectedlines "
-                    + "FROM _load_reports _lr "
-                    + "LEFT OUTER JOIN reports r ON r.report_id = _lr.report_id "
-                    + "LEFT OUTER JOIN fetchurls fureq ON r.fetchurlrequested_id = fureq.fetchurl_id "
-                    + "LEFT OUTER JOIN fetchurls furet ON r.fetchurlretrieved_id = fureq.fetchurl_id "
-                    + "LEFT OUTER JOIN fetchnodes fn ON r.fetchnode_id = fn.fetchnode_id ",
-                    rs -> {
-                        while (rs.next()) {
-                            int reportId = rs.getInt("report_id");
+                + "SELECT r.report_id, recordtime, connectedclients, fetchtime, fureq.url fetchurlrequested, furet.url fetchurlretrieved, fn.name fetchnode, parsetime, parserrejectedlines "
+                + "FROM _load_reports _lr "
+                + "LEFT OUTER JOIN reports r ON r.report_id = _lr.report_id "
+                + "LEFT OUTER JOIN fetchurls fureq ON r.fetchurlrequested_id = fureq.fetchurl_id "
+                + "LEFT OUTER JOIN fetchurls furet ON r.fetchurlretrieved_id = fureq.fetchurl_id "
+                + "LEFT OUTER JOIN fetchnodes fn ON r.fetchnode_id = fn.fetchnode_id ",
+                rs -> {
+                    while (rs.next()) {
+                        int reportId = rs.getInt("report_id");
 
-                            RelationalReport report = (RelationalReport) statusEntityFactory.createReport(rs.getTimestamp("recordtime").toInstant());
-                            report.setDatabaseId(reportId);
-                            report.setFetchNode(rs.getString("fetchnode"));
-                            report.setFetchTime(rs.getTimestamp("fetchtime").toInstant());
-                            report.setFetchUrlRequested(rs.getString("fetchurlrequested"));
-                            report.setFetchUrlRetrieved(rs.getString("fetchurlretrieved"));
-                            report.setNumberOfConnectedClients(rs.getInt("connectedclients"));
-                            report.setParseTime(rs.getTimestamp("parsetime").toInstant());
-                            report.setParserRejectedLines(rs.getInt("parserrejectedlines"));
-                            report.markClean();
+                        RelationalReport report = (RelationalReport) statusEntityFactory
+                            .createReport(rs.getTimestamp("recordtime").toInstant());
+                        report.setDatabaseId(reportId);
+                        report.setFetchNode(rs.getString("fetchnode"));
+                        report.setFetchTime(rs.getTimestamp("fetchtime").toInstant());
+                        report.setFetchUrlRequested(rs.getString("fetchurlrequested"));
+                        report.setFetchUrlRetrieved(rs.getString("fetchurlretrieved"));
+                        report.setNumberOfConnectedClients(rs.getInt("connectedclients"));
+                        report.setParseTime(rs.getTimestamp("parsetime").toInstant());
+                        report.setParserRejectedLines(rs.getInt("parserrejectedlines"));
+                        report.markClean();
 
-                            if (reportsById.put(reportId, report) != null) {
-                                throw new RuntimeException("duplicate report ID " + reportId);
-                            }
+                        if (reportsById.put(reportId, report) != null) {
+                            throw new RuntimeException("duplicate report ID " + reportId);
                         }
-
-                        LOGGER.debug("read {} reports from database", reportsById.size());
                     }
-            );
+
+                    LOGGER.debug("read {} reports from database", reportsById.size());
+                });
 
             // read all preselected connections
             Map<Integer, Member> membersByVatsimId = new HashMap<>();
             Map<Integer, RelationalConnection> connectionsById = new HashMap<>();
             query(db, ""
-                    + "SELECT c.connection_id, logontime, vatsimid, firstreport_id, lastreport_id "
-                    + "FROM _load_connections _lc "
-                    + "LEFT OUTER JOIN connections c ON c.connection_id = _lc.connection_id ",
-                    rs -> {
-                        while (rs.next()) {
-                            int connectionId = rs.getInt("connection_id");
+                + "SELECT c.connection_id, logontime, vatsimid, firstreport_id, lastreport_id "
+                + "FROM _load_connections _lc "
+                + "LEFT OUTER JOIN connections c ON c.connection_id = _lc.connection_id ",
+                rs -> {
+                    while (rs.next()) {
+                        int connectionId = rs.getInt("connection_id");
 
-                            Member member = membersByVatsimId.computeIfAbsent(rs.getInt("vatsimid"), statusEntityFactory::createMember);
+                        Member member = membersByVatsimId.computeIfAbsent(rs.getInt("vatsimid"),
+                            statusEntityFactory::createMember);
 
-                            RelationalConnection connection = (RelationalConnection) statusEntityFactory.createConnection(
-                                    member,
-                                    rs.getTimestamp("logontime").toInstant()
+                        RelationalConnection connection = (RelationalConnection) statusEntityFactory.createConnection(
+                            member,
+                            rs.getTimestamp("logontime").toInstant());
+                        connection.setDatabaseId(connectionId);
+
+                        int firstReportId = rs.getInt("firstreport_id");
+                        RelationalReport firstReport = reportsById.get(firstReportId);
+                        if (firstReport == null) {
+                            throw new RuntimeException(
+                                "connection ID " + connectionId
+                                    + ": report (first) with ID " + firstReportId + " has not been loaded" //
                             );
-                            connection.setDatabaseId(connectionId);
-
-                            int firstReportId = rs.getInt("firstreport_id");
-                            RelationalReport firstReport = reportsById.get(firstReportId);
-                            if (firstReport == null) {
-                                throw new RuntimeException("connection ID " + connectionId + ": report (first) with ID " + firstReportId + " has not been loaded");
-                            }
-                            connection.seenInReport(firstReport);
-
-                            int lastReportId = rs.getInt("lastreport_id");
-                            RelationalReport lastReport = reportsById.get(lastReportId);
-                            if (lastReport == null) {
-                                throw new RuntimeException("connection ID " + connectionId + ": report (last) with ID " + lastReportId + " has not been loaded");
-                            }
-                            connection.seenInReport(lastReport);
-
-                            connection.markClean();
-
-                            if (connectionsById.put(connectionId, connection) != null) {
-                                throw new RuntimeException("duplicate connection ID " + connectionId);
-                            }
                         }
+                        connection.seenInReport(firstReport);
 
-                        LOGGER.debug("read {} connections from database", connectionsById.size());
-                        LOGGER.debug("read {} members (combined total as of reading connections) from database", membersByVatsimId.size());
+                        int lastReportId = rs.getInt("lastreport_id");
+                        RelationalReport lastReport = reportsById.get(lastReportId);
+                        if (lastReport == null) {
+                            throw new RuntimeException(
+                                "connection ID " + connectionId
+                                    + ": report (last) with ID " + lastReportId + " has not been loaded" //
+                            );
+                        }
+                        connection.seenInReport(lastReport);
+
+                        connection.markClean();
+
+                        if (connectionsById.put(connectionId, connection) != null) {
+                            throw new RuntimeException("duplicate connection ID " + connectionId);
+                        }
                     }
-            );
+
+                    LOGGER.debug("read {} connections from database", connectionsById.size());
+                    LOGGER.debug(
+                        "read {} members (combined total as of reading connections) from database",
+                        membersByVatsimId.size() //
+                    );
+                });
 
             // read all facilities of preselected connections
             query(db, ""
-                    + "SELECT connection_id, name "
-                    + "FROM facilities "
-                    + "WHERE connection_id IN (SELECT connection_id FROM _load_connections) ",
-                    rs -> {
-                        int importedFacilities = 0;
-                        while (rs.next()) {
-                            importedFacilities++;
-                            int connectionId = rs.getInt("connection_id");
+                + "SELECT connection_id, name "
+                + "FROM facilities "
+                + "WHERE connection_id IN (SELECT connection_id FROM _load_connections) ",
+                rs -> {
+                    int importedFacilities = 0;
+                    while (rs.next()) {
+                        importedFacilities++;
+                        int connectionId = rs.getInt("connection_id");
 
-                            RelationalConnection connection = connectionsById.get(connectionId);
-                            if (connection == null) {
-                                throw new RuntimeException("facility: connection ID " + connectionId + " has not been read from database");
-                            }
-
-                            RelationalFacility facility = (RelationalFacility) statusEntityFactory.createFacility(rs.getString("name"));
-                            facility.setHasRecordInDatabase(true);
-                            facility.setConnection(connection);
-
-                            // FIXME: it may actually be required to store the actual values in DB although irrelevant after import, check graph import match logic
-                            facility.setType(DUMMY_FACILITY_TYPE);
-                            facility.seenOnFrequencyKilohertz(DUMMY_FACILITY_FREQUENCY_KILOHERTZ);
-
-                            facility.markClean();
-
-                            // since we only imported ATC providing facilities,
-                            // expect evaluation after import to indicate the
-                            // same state
-                            if (!facility.providesATCService()) {
-                                throw new RuntimeException("facility for connection ID " + connectionId + " is not indicating ATC service after import");
-                            }
-
-                            // facilities are linked on members
-                            connection.getMember().addFacility(facility);
-
-                            // facilities are linked on reports
-                            // disconnecting from VATSIM terminates facilities,
-                            // so record time is sufficient to reconstruct all
-                            // reports
-                            Instant firstRecordTime = connection.getFirstReport().getRecordTime();
-                            Instant lastRecordTime = connection.getLastReport().getRecordTime();
-                            reportsById
-                                    .values()
-                                    .stream()
-                                    .filter(report -> isBetween(report.getRecordTime(), firstRecordTime, lastRecordTime))
-                                    .forEach(report -> report.addFacility(facility));
+                        RelationalConnection connection = connectionsById.get(connectionId);
+                        if (connection == null) {
+                            throw new RuntimeException(
+                                "facility: connection ID " + connectionId + " has not been read from database" //
+                            );
                         }
 
-                        LOGGER.debug("read {} facilities from database", importedFacilities);
+                        RelationalFacility facility = (RelationalFacility) statusEntityFactory.createFacility(
+                            rs.getString("name") //
+                        );
+                        facility.setHasRecordInDatabase(true);
+                        facility.setConnection(connection);
+
+                        // FIXME: it may actually be required to store the actual values in DB although
+                        // irrelevant after import, check graph import match logic
+                        facility.setType(DUMMY_FACILITY_TYPE);
+                        facility.seenOnFrequencyKilohertz(DUMMY_FACILITY_FREQUENCY_KILOHERTZ);
+
+                        facility.markClean();
+
+                        // since we only imported ATC providing facilities,
+                        // expect evaluation after import to indicate the
+                        // same state
+                        if (!facility.providesATCService()) {
+                            throw new RuntimeException(
+                                "facility for connection ID " + connectionId
+                                    + " is not indicating ATC service after import" //
+                            );
+                        }
+
+                        // facilities are linked on members
+                        connection.getMember().addFacility(facility);
+
+                        // facilities are linked on reports
+                        // disconnecting from VATSIM terminates facilities,
+                        // so record time is sufficient to reconstruct all
+                        // reports
+                        Instant firstRecordTime = connection.getFirstReport().getRecordTime();
+                        Instant lastRecordTime = connection.getLastReport().getRecordTime();
+                        reportsById
+                            .values()
+                            .stream()
+                            .filter(report -> isBetween(report.getRecordTime(), firstRecordTime, lastRecordTime))
+                            .forEach(report -> report.addFacility(facility));
                     }
-            );
+
+                    LOGGER.debug("read {} facilities from database", importedFacilities);
+                });
 
             // read all preselected flights
             Map<Integer, RelationalFlight> flightsById = new HashMap<>();
             query(db, ""
-                    + "SELECT f.flight_id, vatsimid, callsign "
-                    + "FROM _load_flights _lf "
-                    + "LEFT OUTER JOIN flights f ON f.flight_id = _lf.flight_id ",
-                    rs -> {
-                        while (rs.next()) {
-                            int flightId = rs.getInt("flight_id");
+                + "SELECT f.flight_id, vatsimid, callsign "
+                + "FROM _load_flights _lf "
+                + "LEFT OUTER JOIN flights f ON f.flight_id = _lf.flight_id ",
+                rs -> {
+                    while (rs.next()) {
+                        int flightId = rs.getInt("flight_id");
 
-                            Member member = membersByVatsimId.computeIfAbsent(rs.getInt("vatsimid"), statusEntityFactory::createMember);
+                        Member member = membersByVatsimId.computeIfAbsent(
+                            rs.getInt("vatsimid"),
+                            statusEntityFactory::createMember //
+                        );
 
-                            RelationalFlight flight = (RelationalFlight) statusEntityFactory.createFlight(member, rs.getString("callsign"));
-                            flight.setDatabaseId(flightId);
-                            flight.markClean();
+                        RelationalFlight flight = (RelationalFlight) statusEntityFactory.createFlight(
+                            member,
+                            rs.getString("callsign") //
+                        );
+                        flight.setDatabaseId(flightId);
+                        flight.markClean();
 
-                            // flights are linked on members
-                            member.addFlight(flight);
+                        // flights are linked on members
+                        member.addFlight(flight);
 
-                            if (flightsById.put(flightId, flight) != null) {
-                                throw new RuntimeException("duplicate flight ID " + flightId);
-                            }
+                        if (flightsById.put(flightId, flight) != null) {
+                            throw new RuntimeException("duplicate flight ID " + flightId);
                         }
-
-                        LOGGER.debug("read {} flights from database", flightsById.size());
                     }
-            );
+
+                    LOGGER.debug("read {} flights from database", flightsById.size());
+                });
 
             // associate all preselected flights with connections
             query(db, ""
-                    + "SELECT flight_id, connection_id "
-                    + "FROM connections_flights cf "
-                    + "WHERE flight_id IN (SELECT flight_id FROM _load_flights) ",
-                    rs -> {
-                        int numAssociations = 0;
-                        while (rs.next()) {
-                            numAssociations++;
-                            int flightId = rs.getInt("flight_id");
-                            int connectionId = rs.getInt("connection_id");
+                + "SELECT flight_id, connection_id "
+                + "FROM connections_flights cf "
+                + "WHERE flight_id IN (SELECT flight_id FROM _load_flights) ",
+                rs -> {
+                    int numAssociations = 0;
+                    while (rs.next()) {
+                        numAssociations++;
+                        int flightId = rs.getInt("flight_id");
+                        int connectionId = rs.getInt("connection_id");
 
-                            RelationalFlight flight = flightsById.get(flightId);
-                            if (flight == null) {
-                                throw new RuntimeException("flight ID " + flightId + " (for association with connection ID " + connectionId + ") has not been loaded");
-                            }
-
-                            RelationalConnection connection = connectionsById.get(connectionId);
-                            if (connection == null) {
-                                throw new RuntimeException("connection ID " + connectionId + " (for association with flight ID " + flightId + ") has not been loaded");
-                            }
-
-                            flight.addConnection(connection);
-                            flight.markClean();
+                        RelationalFlight flight = flightsById.get(flightId);
+                        if (flight == null) {
+                            throw new RuntimeException(
+                                "flight ID " + flightId
+                                    + " (for association with connection ID " + connectionId
+                                    + ") has not been loaded" //
+                            );
                         }
 
-                        LOGGER.debug("created {} associations between flights and connections", numAssociations);
+                        RelationalConnection connection = connectionsById.get(connectionId);
+                        if (connection == null) {
+                            throw new RuntimeException(
+                                "connection ID " + connectionId
+                                    + " (for association with flight ID " + flightId
+                                    + ") has not been loaded" //
+                            );
+                        }
+
+                        flight.addConnection(connection);
+                        flight.markClean();
                     }
-            );
+
+                    LOGGER.debug("created {} associations between flights and connections", numAssociations);
+                });
 
             // read all flight plans of preselected flights
             query(db, ""
-                    + "SELECT flight_id, revision, firstseen_report_id, flightplantype, route, altitudefeet, minutesenroute, minutesfuel, departureairport, destinationairport, alternateairport, aircrafttype, departuretimeplanned "
-                    + "FROM flightplans fp "
-                    + "WHERE flight_id IN (SELECT flight_id FROM _load_flights)",
-                    rs -> {
-                        int numFlightPlans = 0;
-                        while (rs.next()) {
-                            numFlightPlans++;
-                            int flightId = rs.getInt("flight_id");
-                            int revision = rs.getInt("revision");
+                + "SELECT flight_id, revision, firstseen_report_id, flightplantype, route, altitudefeet, minutesenroute, minutesfuel, departureairport, destinationairport, alternateairport, aircrafttype, departuretimeplanned "
+                + "FROM flightplans fp "
+                + "WHERE flight_id IN (SELECT flight_id FROM _load_flights)",
+                rs -> {
+                    int numFlightPlans = 0;
+                    while (rs.next()) {
+                        numFlightPlans++;
+                        int flightId = rs.getInt("flight_id");
+                        int revision = rs.getInt("revision");
 
-                            RelationalFlight flight = flightsById.get(flightId);
-                            if (flight == null) {
-                                throw new RuntimeException("flight ID " + flightId + " has not been loaded");
-                            }
-
-                            RelationalFlightPlan flightPlan = (RelationalFlightPlan) statusEntityFactory.createFlightPlan(flight, revision);
-                            flightPlan.setAircraftType(rs.getString("aircrafttype"));
-                            flightPlan.setAlternateAirportCode(rs.getString("alternateairport"));
-                            flightPlan.setAltitudeFeet(negativeIfNull(rs, "altitudefeet"));
-                            flightPlan.setDepartureAirportCode(rs.getString("departureairport"));
-                            flightPlan.setDepartureTimePlanned(toInstant(rs.getTimestamp("departuretimeplanned")));
-                            flightPlan.setDestinationAirportCode(rs.getString("destinationairport"));
-                            flightPlan.setEstimatedTimeEnroute(nullableDurationOfMinutes(rs, "minutesenroute"));
-                            flightPlan.setEstimatedTimeFuel(nullableDurationOfMinutes(rs, "minutesfuel"));
-                            flightPlan.setFlightPlanType(FlightPlanType.resolveFlightPlanCode(rs.getString("flightplantype")));
-                            flightPlan.setRoute(rs.getString("route"));
-
-                            int firstSeenReportId = rs.getInt("firstseen_report_id");
-                            RelationalReport firstSeenReport = reportsById.get(firstSeenReportId);
-                            if (firstSeenReport == null) {
-                                throw new RuntimeException("report ID " + firstSeenReportId + " has not been loaded");
-                            }
-
-                            flightPlan.seenInReport(firstSeenReport);
-
-                            flightPlan.markClean();
-
-                            flight.addFlightPlan(flightPlan);
+                        RelationalFlight flight = flightsById.get(flightId);
+                        if (flight == null) {
+                            throw new RuntimeException("flight ID " + flightId + " has not been loaded");
                         }
 
-                        LOGGER.debug("read {} flight plans from database", numFlightPlans);
+                        RelationalFlightPlan flightPlan = (RelationalFlightPlan) statusEntityFactory
+                            .createFlightPlan(flight, revision);
+                        flightPlan.setAircraftType(rs.getString("aircrafttype"));
+                        flightPlan.setAlternateAirportCode(rs.getString("alternateairport"));
+                        flightPlan.setAltitudeFeet(negativeIfNull(rs, "altitudefeet"));
+                        flightPlan.setDepartureAirportCode(rs.getString("departureairport"));
+                        flightPlan.setDepartureTimePlanned(toInstant(rs.getTimestamp("departuretimeplanned")));
+                        flightPlan.setDestinationAirportCode(rs.getString("destinationairport"));
+                        flightPlan.setEstimatedTimeEnroute(nullableDurationOfMinutes(rs, "minutesenroute"));
+                        flightPlan.setEstimatedTimeFuel(nullableDurationOfMinutes(rs, "minutesfuel"));
+                        flightPlan.setFlightPlanType(
+                            FlightPlanType.resolveFlightPlanCode(rs.getString("flightplantype")) //
+                        );
+                        flightPlan.setRoute(rs.getString("route"));
+
+                        int firstSeenReportId = rs.getInt("firstseen_report_id");
+                        RelationalReport firstSeenReport = reportsById.get(firstSeenReportId);
+                        if (firstSeenReport == null) {
+                            throw new RuntimeException("report ID " + firstSeenReportId + " has not been loaded");
+                        }
+
+                        flightPlan.seenInReport(firstSeenReport);
+
+                        flightPlan.markClean();
+
+                        flight.addFlightPlan(flightPlan);
                     }
-            );
+
+                    LOGGER.debug("read {} flight plans from database", numFlightPlans);
+                });
 
             // read all track points of preselected flights
             query(db, ""
-                    + "SELECT tp.flight_id, tp.report_id, ST_AsText(geocoords) geocoords, heading, groundspeed, transpondercode, qnhcinhg, flightevent_id "
-                    + "FROM trackpoints tp "
-                    + "LEFT OUTER JOIN trackpoints_flightevents tpfe ON tpfe.flight_id = tp.flight_id AND tpfe.report_id = tp.report_id "
-                    + "WHERE tp.flight_id IN (SELECT flight_id FROM _load_flights) ",
-                    rs -> {
-                        int numTrackPoints = 0;
-                        int numMarkedEvents = 0;
-                        while (rs.next()) {
-                            numTrackPoints++;
+                + "SELECT tp.flight_id, tp.report_id, ST_AsText(geocoords) geocoords, heading, groundspeed, transpondercode, qnhcinhg, flightevent_id "
+                + "FROM trackpoints tp "
+                + "LEFT OUTER JOIN trackpoints_flightevents tpfe ON tpfe.flight_id = tp.flight_id AND tpfe.report_id = tp.report_id "
+                + "WHERE tp.flight_id IN (SELECT flight_id FROM _load_flights) ",
+                rs -> {
+                    int numTrackPoints = 0;
+                    int numMarkedEvents = 0;
+                    while (rs.next()) {
+                        numTrackPoints++;
 
-                            int flightId = rs.getInt("flight_id");
-                            RelationalFlight flight = flightsById.get(flightId);
-                            if (flight == null) {
-                                throw new RuntimeException("flight ID " + flightId + " has not been loaded");
-                            }
-
-                            int reportId = rs.getInt("report_id");
-                            RelationalReport report = reportsById.get(reportId);
-                            if (report == null) {
-                                throw new RuntimeException("report ID " + reportId + " has not been loaded");
-                            }
-
-                            RelationalTrackPoint trackPoint = (RelationalTrackPoint) statusEntityFactory.createTrackPoint(report);
-                            trackPoint.setFlight(flight);
-                            trackPoint.setGeoCoordinates(convertPostGisToGeoCoordinates(rs.getString("geocoords")));
-                            trackPoint.setGroundSpeed(negativeIfNull(rs, "groundspeed"));
-                            trackPoint.setHeading(negativeIfNull(rs, "heading"));
-                            trackPoint.setQnh(nullableBarometricPressureFromCentiInchesOfMercury(rs, "qnhcinhg"));
-                            trackPoint.setTransponderCode(negativeIfNull(rs, "transpondercode"));
-                            trackPoint.markClean();
-
-                            flight.addTrackPoint(trackPoint);
-
-                            report.addFlight(flight);
-
-                            FlightEvent event = nullableFlightEvent(rs, "flightevent_id");
-                            if (event != null) {
-                                if (flight.isDirty()) {
-                                    throw new RuntimeException("flight " + flight.getDatabaseId() + " is marked dirty, unable to import flightevent");
-                                }
-
-                                flight.markEvent(trackPoint, event);
-                                flight.markClean();
-
-                                numMarkedEvents++;
-                            }
+                        int flightId = rs.getInt("flight_id");
+                        RelationalFlight flight = flightsById.get(flightId);
+                        if (flight == null) {
+                            throw new RuntimeException("flight ID " + flightId + " has not been loaded");
                         }
 
-                        LOGGER.debug("read {} track points from database, marked {} events", numTrackPoints, numMarkedEvents);
+                        int reportId = rs.getInt("report_id");
+                        RelationalReport report = reportsById.get(reportId);
+                        if (report == null) {
+                            throw new RuntimeException("report ID " + reportId + " has not been loaded");
+                        }
+
+                        RelationalTrackPoint trackPoint = (RelationalTrackPoint) statusEntityFactory
+                            .createTrackPoint(report);
+                        trackPoint.setFlight(flight);
+                        trackPoint.setGeoCoordinates(convertPostGisToGeoCoordinates(rs.getString("geocoords")));
+                        trackPoint.setGroundSpeed(negativeIfNull(rs, "groundspeed"));
+                        trackPoint.setHeading(negativeIfNull(rs, "heading"));
+                        trackPoint.setQnh(nullableBarometricPressureFromCentiInchesOfMercury(rs, "qnhcinhg"));
+                        trackPoint.setTransponderCode(negativeIfNull(rs, "transpondercode"));
+                        trackPoint.markClean();
+
+                        flight.addTrackPoint(trackPoint);
+
+                        report.addFlight(flight);
+
+                        FlightEvent event = nullableFlightEvent(rs, "flightevent_id");
+                        if (event != null) {
+                            if (flight.isDirty()) {
+                                throw new RuntimeException(
+                                    "flight " + flight.getDatabaseId()
+                                        + " is marked dirty, unable to import flightevent" //
+                                );
+                            }
+
+                            flight.markEvent(trackPoint, event);
+                            flight.markClean();
+
+                            numMarkedEvents++;
+                        }
                     }
-            );
+
+                    LOGGER.debug(
+                        "read {} track points from database, marked {} events",
+                        numTrackPoints, numMarkedEvents //
+                    );
+                });
 
             // register all flights to reports as indicated by record times on
             // connections
             Instant startFlightConnectionRegistration = Instant.now();
             for (RelationalFlight flight : flightsById.values()) {
-                for (org.vatplanner.dataformats.vatsimpublic.entities.status.Connection connection : flight.getConnections()) {
+                for (org.vatplanner.dataformats.vatsimpublic.entities.status.Connection connection : flight
+                    .getConnections()) {
                     Instant firstRecordTime = connection.getFirstReport().getRecordTime();
                     Instant lastRecordTime = connection.getLastReport().getRecordTime();
                     reportsById
-                            .values()
-                            .stream()
-                            .filter(report -> isBetween(report.getRecordTime(), firstRecordTime, lastRecordTime))
-                            .forEach(report -> report.addFlight(flight));
+                        .values()
+                        .stream()
+                        .filter(report -> isBetween(report.getRecordTime(), firstRecordTime, lastRecordTime))
+                        .forEach(report -> report.addFlight(flight));
                 }
             }
             Instant endFlightConnectionRegistration = Instant.now();
-            LOGGER.debug("registered loaded flights to reports by connections (took {}ms)", Duration.between(startFlightConnectionRegistration, endFlightConnectionRegistration).toMillis());
+            LOGGER.debug(
+                "registered loaded flights to reports by connections (took {}ms)",
+                Duration.between(startFlightConnectionRegistration, endFlightConnectionRegistration).toMillis() //
+            );
 
             // register flights to reports by flight plans (for prefilings)
             // starting with first seen report of flight plan and assuming
@@ -726,25 +762,31 @@ public class Database {
                     continue;
                 }
 
-                SortedSet<org.vatplanner.dataformats.vatsimpublic.entities.status.Connection> connections = flight.getConnections();
+                SortedSet<org.vatplanner.dataformats.vatsimpublic.entities.status.Connection> connections = flight
+                    .getConnections();
 
                 Instant firstFlightPlanRevisionRecordTime = getFirst(flightPlans)
-                        .map(FlightPlan::getReportFirstSeen)
-                        .map(Report::getRecordTime)
-                        .orElse(null);
+                    .map(FlightPlan::getReportFirstSeen)
+                    .map(Report::getRecordTime)
+                    .orElse(null);
 
                 Instant firstConnectionRecordTime = getFirst(connections)
-                        .map(org.vatplanner.dataformats.vatsimpublic.entities.status.Connection::getFirstReport)
-                        .map(Report::getRecordTime)
-                        .orElse(null);
+                    .map(org.vatplanner.dataformats.vatsimpublic.entities.status.Connection::getFirstReport)
+                    .map(Report::getRecordTime)
+                    .orElse(null);
 
                 Optional<FlightPlan> lastFlightPlanRevisionBeforeConnected;
                 if (firstConnectionRecordTime == null) {
                     lastFlightPlanRevisionBeforeConnected = getLast(flightPlans);
                 } else {
-                    lastFlightPlanRevisionBeforeConnected = flightPlans.stream()
-                            .filter(flightPlan -> flightPlan.getReportFirstSeen().getRecordTime().isBefore(firstConnectionRecordTime))
-                            .max(Comparator.comparingInt(FlightPlan::getRevision));
+                    lastFlightPlanRevisionBeforeConnected = flightPlans
+                        .stream()
+                        .filter( //
+                            flightPlan -> flightPlan
+                                .getReportFirstSeen()
+                                .getRecordTime()
+                                .isBefore(firstConnectionRecordTime))
+                        .max(Comparator.comparingInt(FlightPlan::getRevision));
                 }
 
                 // flights may have no pre-filings but file only while online
@@ -756,38 +798,41 @@ public class Database {
                 }
 
                 Instant lastFlightPlanRevisionRecordTimeBeforeConnected = lastFlightPlanRevisionBeforeConnected
-                        .map(FlightPlan::getReportFirstSeen)
-                        .map(Report::getRecordTime)
-                        .orElse(null);
+                    .map(FlightPlan::getReportFirstSeen)
+                    .map(Report::getRecordTime)
+                    .orElse(null);
 
                 Instant lastConnectionRecordTime = getLast(connections)
-                        .map(org.vatplanner.dataformats.vatsimpublic.entities.status.Connection::getLastReport)
-                        .map(Report::getRecordTime)
-                        .orElse(null);
+                    .map(org.vatplanner.dataformats.vatsimpublic.entities.status.Connection::getLastReport)
+                    .map(Report::getRecordTime)
+                    .orElse(null);
 
                 // retention of flight plans starts with first revision and is
                 // assumed to end with either disconnect or at end of well-known
                 // retention period
                 Instant latestAssumedRetentionTime = TimeHelpers.min(
-                        lastConnectionRecordTime,
-                        lastFlightPlanRevisionRecordTimeBeforeConnected.plus(FLIGHT_PLAN_RETENTION_TIME)
-                );
+                    lastConnectionRecordTime,
+                    lastFlightPlanRevisionRecordTimeBeforeConnected.plus(FLIGHT_PLAN_RETENTION_TIME));
 
                 reportsById
-                        .values()
-                        .stream()
-                        .filter(report -> isBetween(report.getRecordTime(), firstFlightPlanRevisionRecordTime, latestAssumedRetentionTime))
-                        .forEach(report -> report.addFlight(flight));
+                    .values()
+                    .stream()
+                    .filter(
+                        report -> isBetween(
+                            report.getRecordTime(),
+                            firstFlightPlanRevisionRecordTime,
+                            latestAssumedRetentionTime))
+                    .forEach(report -> report.addFlight(flight));
 
                 numFlightsRegisteredByFlightPlan++;
             }
             Instant endFlightPlanRegistration = Instant.now();
             LOGGER.debug(
-                    "registered loaded flights to reports by flight plans/prefilings (took {}ms; {} flights registered, {} without prefiling, {} without flight plan)",
-                    Duration.between(startFlightPlanRegistration, endFlightPlanRegistration).toMillis(),
-                    numFlightsRegisteredByFlightPlan,
-                    numNoPrefiling,
-                    numNoFlightPlan
+                "registered loaded flights to reports by flight plans/prefilings (took {}ms; {} flights registered, {} without prefiling, {} without flight plan)",
+                Duration.between(startFlightPlanRegistration, endFlightPlanRegistration).toMillis(),
+                numFlightsRegisteredByFlightPlan,
+                numNoPrefiling,
+                numNoFlightPlan //
             );
 
             // delete temporary tables
@@ -801,10 +846,10 @@ public class Database {
 
             Instant end = Instant.now();
             LOGGER.info(
-                    "Loading complete after {}ms (preselect {}ms, fetch {}ms)",
-                    Duration.between(start, end).toMillis(),
-                    Duration.between(start, endPreselect).toMillis(),
-                    Duration.between(endPreselect, end).toMillis()
+                "Loading complete after {}ms (preselect {}ms, fetch {}ms)",
+                Duration.between(start, end).toMillis(),
+                Duration.between(start, endPreselect).toMillis(),
+                Duration.between(endPreselect, end).toMillis() //
             );
 
             evictCaches();
@@ -842,7 +887,12 @@ public class Database {
         double longitude = Double.parseDouble(matcher.group(PATTERN_POSTGIS_POINTZ_LONGITUDE));
         double altitude = Double.parseDouble(matcher.group(PATTERN_POSTGIS_POINTZ_Z));
 
-        return new GeoCoordinates(latitude, longitude, (int) Math.round(altitude), RelationalTrackPoint.POSTGIS_IS_ALTITUDE_UNIT_FEET);
+        return new GeoCoordinates(
+            latitude,
+            longitude,
+            (int) Math.round(altitude),
+            RelationalTrackPoint.POSTGIS_IS_ALTITUDE_UNIT_FEET //
+        );
     }
 
     private void execute(Connection db, String sql) throws SQLException {

@@ -8,6 +8,7 @@ import java.net.URL;
 import java.time.Instant;
 import java.util.Properties;
 import java.util.function.Consumer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.client.ClientConfiguration;
@@ -31,8 +32,8 @@ public class Configuration {
     /**
      * Loads all application configuration.
      *
-     * @param filePath optional path to local configuration file; null to load
-     * local configuration from default path
+     * @param filePath optional path to local configuration file; null to load local
+     *        configuration from default path
      */
     public Configuration(String filePath) {
         boolean success = true;
@@ -91,9 +92,9 @@ public class Configuration {
 
     /**
      * Returns a {@link File} reference to the default configuration file. The
-     * default configuration is shipped with the application and should always
-     * be loaded first to provide a base configuration, so user only has to
-     * configure overrides.
+     * default configuration is shipped with the application and should always be
+     * loaded first to provide a base configuration, so user only has to configure
+     * overrides.
      *
      * @return reference to the default configuration file
      */
@@ -102,17 +103,19 @@ public class Configuration {
     }
 
     /**
-     * Returns a {@link File} reference to the local configuration file. The
-     * local configuration is by default sought at a well-known location. If
-     * set, default location can be overridden.
+     * Returns a {@link File} reference to the local configuration file. The local
+     * configuration is by default sought at a well-known location. If set, default
+     * location can be overridden.
      *
-     * @param filePath optional override for a specific file; default location
-     * if null
+     * @param filePath optional override for a specific file; default location if
+     *        null
      * @return reference to the local configuration file
      */
     private File getLocalConfigurationFile(String filePath) {
         if (filePath == null) {
-            filePath = System.getProperty("user.home") + File.separator + LOCAL_PROPERTIES_DIRECTORY_NAME + File.separator + LOCAL_PROPERTIES_FILE_NAME;
+            filePath = System.getProperty("user.home")
+                + File.separator + LOCAL_PROPERTIES_DIRECTORY_NAME
+                + File.separator + LOCAL_PROPERTIES_FILE_NAME;
         }
 
         return new File(filePath);
@@ -176,8 +179,16 @@ public class Configuration {
     private MemoryConfiguration parseMemoryConfiguration(Properties properties) {
         MemoryConfiguration config = new MemoryConfiguration();
 
-        setInteger(properties, "memory.maxAbsoluteIncreaseSinceFirstImportMegaBytes", config::setMaxAbsoluteIncreaseSinceFirstImportMegaBytes);
-        setInteger(properties, "memory.maxPercentageIncreaseSinceFirstImport", config::setMaxPercentageIncreaseSinceFirstImport);
+        setInteger(
+            properties,
+            "memory.maxAbsoluteIncreaseSinceFirstImportMegaBytes",
+            config::setMaxAbsoluteIncreaseSinceFirstImportMegaBytes //
+        );
+        setInteger(
+            properties,
+            "memory.maxPercentageIncreaseSinceFirstImport",
+            config::setMaxPercentageIncreaseSinceFirstImport //
+        );
         setInteger(properties, "memory.exitCode", config::setExitCode);
 
         return config;

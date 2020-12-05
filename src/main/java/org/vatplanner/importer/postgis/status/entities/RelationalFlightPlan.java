@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Flight;
@@ -26,7 +27,10 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
 
     private final DirtyEntityTracker tracker;
 
-    private static final Pattern PATTERN_AIRPORT_CODE = Pattern.compile("^([a-z0-9]+)[^a-z0-9].*$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PATTERN_AIRPORT_CODE = Pattern.compile(
+        "^([a-z0-9]+)[^a-z0-9].*$",
+        Pattern.CASE_INSENSITIVE //
+    );
     private static final int PATTERN_AIRPORT_CODE_CODE = 1;
 
     public RelationalFlightPlan(DirtyEntityTracker tracker, Flight flight, int revision) {
@@ -173,9 +177,16 @@ public class RelationalFlightPlan extends FlightPlan implements DirtyMark {
 
         RelationalFlight flight = (RelationalFlight) getFlight();
 
-        LOGGER.trace("INSERT flightplan: flight {}, revision {}, first report {}, callsign {}, altitude {}, dep {}, dest {}, alt {}, type {}, enroute {}, fuel {}", flight.getDatabaseId(), getRevision(), getReportFirstSeen().getRecordTime(), flight.getCallsign(), getAltitudeFeet(), getDepartureAirportCode(), getDestinationAirportCode(), getAlternateAirportCode(), getAircraftType(), getEstimatedTimeEnroute(), getEstimatedTimeFuel());
+        LOGGER.trace(
+            "INSERT flightplan: flight {}, revision {}, first report {}, callsign {}, altitude {}, dep {}, dest {}, alt {}, type {}, enroute {}, fuel {}",
+            flight.getDatabaseId(), getRevision(), getReportFirstSeen().getRecordTime(), flight.getCallsign(),
+            getAltitudeFeet(), getDepartureAirportCode(), getDestinationAirportCode(), getAlternateAirportCode(),
+            getAircraftType(), getEstimatedTimeEnroute(), getEstimatedTimeFuel() //
+        );
 
-        PreparedStatement ps = db.prepareStatement("INSERT INTO flightplans (flight_id, revision, firstseen_report_id, flightplantype, departuretimeplanned, route, altitudefeet, minutesenroute, minutesfuel, departureairport, destinationairport, alternateairport, aircrafttype) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement ps = db.prepareStatement(
+            "INSERT INTO flightplans (flight_id, revision, firstseen_report_id, flightplantype, departuretimeplanned, route, altitudefeet, minutesenroute, minutesfuel, departureairport, destinationairport, alternateairport, aircrafttype) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" //
+        );
         ps.setInt(1, flight.getDatabaseId());
         ps.setInt(2, getRevision());
         ps.setInt(3, ((RelationalReport) getReportFirstSeen()).getDatabaseId());

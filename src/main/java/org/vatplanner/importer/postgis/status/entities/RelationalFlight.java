@@ -4,6 +4,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Connection;
@@ -11,8 +12,8 @@ import org.vatplanner.dataformats.vatsimpublic.entities.status.Flight;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.FlightEvent;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Member;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.TrackPoint;
-import org.vatplanner.importer.postgis.status.database.Caches;
 import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
+import org.vatplanner.importer.postgis.status.database.Caches;
 import org.vatplanner.importer.postgis.status.database.StrictEnumCache;
 
 /**
@@ -39,11 +40,8 @@ public class RelationalFlight extends Flight implements DirtyMark {
     }
 
     /*
-    @Override
-    public void markAsReconstructed(Report report) {
-        markDirty();
-        super.markAsReconstructed(report);
-    }
+     * @Override public void markAsReconstructed(Report report) { markDirty();
+     * super.markAsReconstructed(report); }
      */
     @Override
     public void markEvent(TrackPoint trackPoint, FlightEvent event) {
@@ -92,7 +90,9 @@ public class RelationalFlight extends Flight implements DirtyMark {
         LOGGER.trace("INSERT flight: callsign {}", getCallsign());
 
         // TODO: save flag or number of reports if affected by reconstruction?
-        PreparedStatement ps = db.prepareStatement("INSERT INTO flights (vatsimid, callsign) VALUES (?, ?) RETURNING flight_id");
+        PreparedStatement ps = db.prepareStatement( //
+            "INSERT INTO flights (vatsimid, callsign) VALUES (?, ?) RETURNING flight_id" //
+        );
         ps.setInt(1, getMember().getVatsimId());
         ps.setString(2, getCallsign());
 
@@ -120,7 +120,9 @@ public class RelationalFlight extends Flight implements DirtyMark {
     private void insertConnection(java.sql.Connection db, RelationalConnection connection) throws SQLException {
         LOGGER.trace("INSERT m:n flight={} connection={}", getDatabaseId(), connection.getDatabaseId());
 
-        PreparedStatement ps = db.prepareStatement("INSERT INTO connections_flights (flight_id, connection_id) VALUES (?, ?) ON CONFLICT DO NOTHING");
+        PreparedStatement ps = db.prepareStatement(
+            "INSERT INTO connections_flights (flight_id, connection_id) VALUES (?, ?) ON CONFLICT DO NOTHING" //
+        );
         ps.setInt(1, getDatabaseId());
         ps.setInt(2, connection.getDatabaseId());
 
@@ -141,7 +143,9 @@ public class RelationalFlight extends Flight implements DirtyMark {
 
         LOGGER.trace("INSERT m:n flight={} report={} flightevent={}/{}", getDatabaseId(), reportId, event, eventId);
 
-        PreparedStatement ps = db.prepareStatement("INSERT INTO trackpoints_flightevents (flight_id, report_id, flightevent_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING");
+        PreparedStatement ps = db.prepareStatement(
+            "INSERT INTO trackpoints_flightevents (flight_id, report_id, flightevent_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING" //
+        );
         ps.setInt(1, getDatabaseId());
         ps.setInt(2, reportId);
         ps.setInt(3, eventId);

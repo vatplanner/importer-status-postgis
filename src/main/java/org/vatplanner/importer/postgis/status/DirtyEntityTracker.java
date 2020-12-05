@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
 import org.vatplanner.importer.postgis.status.entities.DirtyMark;
 
 public class DirtyEntityTracker {
@@ -33,9 +34,9 @@ public class DirtyEntityTracker {
 
     public int countDirtyEntities() {
         return dirtyEntitiesByClass
-                .values()
-                .stream()
-                .mapToInt(Set::size)
-                .sum();
+            .values()
+            .stream()
+            .mapToInt(Set::size)
+            .sum();
     }
 }

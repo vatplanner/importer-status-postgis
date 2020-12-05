@@ -1,6 +1,7 @@
 package org.vatplanner.importer.postgis.status.configuration;
 
 import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,6 +1,5 @@
 package org.vatplanner.importer.postgis.status;
 
-import org.vatplanner.importer.postgis.status.database.Database;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -8,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.client.RawDataFileClient;
@@ -16,6 +16,7 @@ import org.vatplanner.dataformats.vatsimpublic.entities.status.StatusEntityFacto
 import org.vatplanner.dataformats.vatsimpublic.graph.GraphImport;
 import org.vatplanner.dataformats.vatsimpublic.graph.GraphIndex;
 import org.vatplanner.dataformats.vatsimpublic.parser.ParserLogEntry;
+import org.vatplanner.importer.postgis.status.database.Database;
 import org.vatplanner.importer.postgis.status.entities.RelationalConnection;
 import org.vatplanner.importer.postgis.status.entities.RelationalFacility;
 import org.vatplanner.importer.postgis.status.entities.RelationalFlight;
@@ -52,11 +53,11 @@ public class StatusImport {
 
     /**
      * Configures whether next chunk import is allowed to commence with an empty
-     * database, causing all available data to be imported from archive. The
-     * option disables itself as soon as it seems not to be needed.
+     * database, causing all available data to be imported from archive. The option
+     * disables itself as soon as it seems not to be needed.
      *
-     * @param allowImportOnEmptyDatabase set true to allow import on empty
-     * database once
+     * @param allowImportOnEmptyDatabase set true to allow import on empty database
+     *        once
      */
     public void setAllowImportOnEmptyDatabase(boolean allowImportOnEmptyDatabase) {
         this.allowImportOnEmptyDatabase = allowImportOnEmptyDatabase;
@@ -66,8 +67,8 @@ public class StatusImport {
      * Configures the fetch time of earliest report to be imported in case of an
      * empty database.
      *
-     * @param earliestFetchTimestampEmptyDatabase fetch time of earliest report
-     * to be imported in case of an empty database
+     * @param earliestFetchTimestampEmptyDatabase fetch time of earliest report to
+     *        be imported in case of an empty database
      */
     public void setEarliestFetchTimestampEmptyDatabase(Instant earliestFetchTimestampEmptyDatabase) {
         this.earliestFetchTimestampEmptyDatabase = earliestFetchTimestampEmptyDatabase;
@@ -85,7 +86,9 @@ public class StatusImport {
                 LOGGER.error("Import on empty database has been disabled, exiting...");
                 System.exit(1);
             } else {
-                LOGGER.warn("Import on empty database was enabled, import will start with earliest available data from archive.");
+                LOGGER.warn(
+                    "Import on empty database was enabled, import will start with earliest available data from archive." //
+                );
             }
         }
 
@@ -94,43 +97,46 @@ public class StatusImport {
         allowImportOnEmptyDatabase = false;
 
         Instant earliestFetchTimestamp = (latestImportedFetchTimestamp != null)
-                ? latestImportedFetchTimestamp.plusSeconds(1)
-                : earliestFetchTimestampEmptyDatabase;
+            ? latestImportedFetchTimestamp.plusSeconds(1)
+            : earliestFetchTimestampEmptyDatabase;
         Instant latestFetchTimestamp = Instant.MAX;
 
         // request and parse data from archive
         CompletableFuture<List<ParsedDataFile>> futureDataFiles = archiveClient
-                .request(packerMethod, earliestFetchTimestamp, latestFetchTimestamp, fileLimit)
-                .thenApply(files -> {
-                    return files
-                            .stream()
-                            .parallel()
-                            .map(ParsedDataFile::new)
-                            .sequential()
-                            .sorted(Comparator.comparing(ParsedDataFile::getFetchTime))
-                            .collect(Collectors.toList());
-                });
+            .request(packerMethod, earliestFetchTimestamp, latestFetchTimestamp, fileLimit)
+            .thenApply(files -> {
+                return files
+                    .stream()
+                    .parallel()
+                    .map(ParsedDataFile::new)
+                    .sequential()
+                    .sorted(Comparator.comparing(ParsedDataFile::getFetchTime))
+                    .collect(Collectors.toList());
+            });
 
         // load partial graph from DB if not already loaded
         GraphIndex graphIndex = graphImport.getIndex();
         if (!graphIndex.hasReports() && (latestImportedFetchTimestamp != null)) {
-            database.loadReportsSinceRecordTime(graphIndex, statusEntityFactory, latestImportedFetchTimestamp.minus(fullGraphReloadTime));
+            database.loadReportsSinceRecordTime(graphIndex, statusEntityFactory,
+                latestImportedFetchTimestamp.minus(fullGraphReloadTime));
         }
 
         // check that tracker indicates no dirty entities
         int dirtyEntitiesBeforeImport = tracker.countDirtyEntities();
         if (dirtyEntitiesBeforeImport != 0) {
             LOGGER.error(
-                    "{} dirty entities found before import: {} connections, {} facilities, {} flights, {} flight plans, {} reports, {} track points",
-                    dirtyEntitiesBeforeImport,
-                    tracker.getDirtyEntities(RelationalConnection.class).size(),
-                    tracker.getDirtyEntities(RelationalFacility.class).size(),
-                    tracker.getDirtyEntities(RelationalFlight.class).size(),
-                    tracker.getDirtyEntities(RelationalFlightPlan.class).size(),
-                    tracker.getDirtyEntities(RelationalReport.class).size(),
-                    tracker.getDirtyEntities(RelationalTrackPoint.class).size()
+                "{} dirty entities found before import: {} connections, {} facilities, {} flights, {} flight plans, {} reports, {} track points",
+                dirtyEntitiesBeforeImport,
+                tracker.getDirtyEntities(RelationalConnection.class).size(),
+                tracker.getDirtyEntities(RelationalFacility.class).size(),
+                tracker.getDirtyEntities(RelationalFlight.class).size(),
+                tracker.getDirtyEntities(RelationalFlightPlan.class).size(),
+                tracker.getDirtyEntities(RelationalReport.class).size(),
+                tracker.getDirtyEntities(RelationalTrackPoint.class).size() //
             );
-            throw new RuntimeException(dirtyEntitiesBeforeImport + " dirty entities after loading, expected clean state; aborting");
+            throw new RuntimeException(
+                dirtyEntitiesBeforeImport + " dirty entities after loading, expected clean state; aborting" //
+            );
         }
 
         // get archive result
@@ -138,7 +144,12 @@ public class StatusImport {
         try {
             dataFiles = futureDataFiles.get();
         } catch (InterruptedException | ExecutionException ex) {
-            throw new RuntimeException("Failed to load/parse data from archive for chunk from " + earliestFetchTimestamp + " to " + latestFetchTimestamp + " (file limit " + fileLimit + ").", ex);
+            throw new RuntimeException(
+                "Failed to load/parse data from archive for chunk from " + earliestFetchTimestamp
+                    + " to " + latestFetchTimestamp
+                    + " (file limit " + fileLimit + ").",
+                ex //
+            );
         }
 
         // abort if we got no data files
@@ -155,24 +166,28 @@ public class StatusImport {
             RelationalReport report = (RelationalReport) graphImport.importDataFile(dataFile.getContent());
 
             if (report == null) {
-                LOGGER.warn("Graph import rejected data file recorded {}, fetched {} by node {}, requested from {}, retrieved from {}", dataFile.getContent().getMetaData().getTimestamp(), dataFile.getFetchTime(), dataFile.getFetchNode(), dataFile.getFetchUrlRequested(), dataFile.getFetchUrlRetrieved());
+                LOGGER.warn(
+                    "Graph import rejected data file recorded {}, fetched {} by node {}, requested from {}, retrieved from {}",
+                    dataFile.getContent().getMetaData().getTimestamp(), dataFile.getFetchTime(),
+                    dataFile.getFetchNode(), dataFile.getFetchUrlRequested(), dataFile.getFetchUrlRetrieved() //
+                );
                 continue;
             }
 
             int parserRejectedLines = (int) dataFile
-                    .getContent()
-                    .getParserLogEntries()
-                    .stream()
-                    .filter(ParserLogEntry::isLineRejected)
-                    .count();
+                .getContent()
+                .getParserLogEntries()
+                .stream()
+                .filter(ParserLogEntry::isLineRejected)
+                .count();
 
             report
-                    .setFetchNode(dataFile.getFetchNode())
-                    .setFetchTime(dataFile.getFetchTime())
-                    .setFetchUrlRequested(dataFile.getFetchUrlRequested())
-                    .setFetchUrlRetrieved(dataFile.getFetchUrlRetrieved())
-                    .setParserRejectedLines(parserRejectedLines)
-                    .setParseTime(Instant.now());
+                .setFetchNode(dataFile.getFetchNode())
+                .setFetchTime(dataFile.getFetchTime())
+                .setFetchUrlRequested(dataFile.getFetchUrlRequested())
+                .setFetchUrlRetrieved(dataFile.getFetchUrlRetrieved())
+                .setParserRejectedLines(parserRejectedLines)
+                .setParseTime(Instant.now());
         }
         Instant afterImport = Instant.now();
 
@@ -186,7 +201,10 @@ public class StatusImport {
 
         latestImportedFetchTimestamp = dataFiles.get(dataFiles.size() - 1).getFetchTime();
 
-        // TODO: periodic clean up in DB - data from connections and m:n tables is only needed while data is still recent (matching flights, fuzzy import)
+        /*
+         * TODO: periodic clean up in DB - data from connections and m:n tables is only
+         * needed while data is still recent (matching flights, fuzzy import)
+         */
         return dataFiles.size();
     }
 

@@ -1,51 +1,54 @@
 package org.vatplanner.importer.postgis.status.entities;
 
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertThat;
+import static org.mockito.Mockito.mock;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
+
 import com.tngtech.java.junit.dataprovider.DataProvider;
 import com.tngtech.java.junit.dataprovider.DataProviderRunner;
 import com.tngtech.java.junit.dataprovider.UseDataProvider;
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import static org.mockito.Mockito.*;
-import org.vatplanner.importer.postgis.status.DirtyEntityTracker;
 
 @RunWith(DataProviderRunner.class)
 public class RelationalFlightPlanTest {
 
     @DataProvider
     public static Object[][] dataProviderNormalizeAirportCodes() {
-        return new Object[][]{
+        return new Object[][] {
             // empty/null
-            {null, null}, //
-            {"", ""}, //
+            { null, null }, //
+            { "", "" }, //
 
             // shorter than ICAO
-            {"a", "A"}, //
-            {"1", "1"}, //
+            { "a", "A" }, //
+            { "1", "1" }, //
 
             // exact ICAO,
-            {"ABCD", "ABCD"}, //
-            {"AB2D", "AB2D"}, //
+            { "ABCD", "ABCD" }, //
+            { "AB2D", "AB2D" }, //
 
             // mixed case
-            {"aBCd", "ABCD"}, //
+            { "aBCd", "ABCD" }, //
 
             // too long
-            {"ABCDEFGH", "ABCDEFGH"}, //
+            { "ABCDEFGH", "ABCDEFGH" }, //
 
             // trim
-            {"  Ab2D ", "AB2D"}, //
-            {"   ", ""}, //
+            { "  Ab2D ", "AB2D" }, //
+            { "   ", "" }, //
 
             // removal after first special character
-            {"EDDT SID ROUTE HERE", "EDDT"}, //
-            {"EDDT/WHATEVER", "EDDT"}, //
-            {"EDDT.ABCD", "EDDT"}, //
+            { "EDDT SID ROUTE HERE", "EDDT" }, //
+            { "EDDT/WHATEVER", "EDDT" }, //
+            { "EDDT.ABCD", "EDDT" }, //
 
             // special characters at start
-            {".WHAT", ""}, //
-            {"/r/ this clearly is no airport code", ""}, //
+            { ".WHAT", "" }, //
+            { "/r/ this clearly is no airport code", "" }, //
         };
     }
 

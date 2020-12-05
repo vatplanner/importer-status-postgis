@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.archiver.common.RawDataFile;
@@ -17,7 +18,10 @@ import org.vatplanner.dataformats.vatsimpublic.parser.DataFileParser;
  * way as {@link RawDataFile}.
  */
 public class ParsedDataFile {
-    // TODO: check if {@link RawDataFile} can be split into an abstract base class which can be reused
+    /*
+     * TODO: check if {@link RawDataFile} can be split into an abstract base class
+     * which can be reused
+     */
     // TODO: move to data formats module?
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ParsedDataFile.class);
@@ -30,8 +34,8 @@ public class ParsedDataFile {
     private String fetchUrlRetrieved;
 
     /**
-     * Parses the given {@link RawDataFile} maintaining all meta information.
-     * After parsing, original content will be cleared.
+     * Parses the given {@link RawDataFile} maintaining all meta information. After
+     * parsing, original content will be cleared.
      *
      * @param rawDataFile data file to be parsed
      */

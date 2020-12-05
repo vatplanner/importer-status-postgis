@@ -19,7 +19,10 @@ public class MemoryConfiguration {
     }
 
     public MemoryConfiguration setMaxAbsoluteIncreaseSinceFirstImportMegaBytes(int maxAbsoluteIncreaseSinceFirstImportMegaBytes) {
-        LOGGER.debug("setting maxAbsoluteIncreaseSinceFirstImportMegaBytes to {}", maxAbsoluteIncreaseSinceFirstImportMegaBytes);
+        LOGGER.debug(
+            "setting maxAbsoluteIncreaseSinceFirstImportMegaBytes to {}",
+            maxAbsoluteIncreaseSinceFirstImportMegaBytes //
+        );
         this.maxAbsoluteIncreaseSinceFirstImportMegaBytes = maxAbsoluteIncreaseSinceFirstImportMegaBytes;
         return this;
     }

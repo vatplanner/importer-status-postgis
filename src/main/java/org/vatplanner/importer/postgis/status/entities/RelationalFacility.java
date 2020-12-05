@@ -2,6 +2,7 @@ package org.vatplanner.importer.postgis.status.entities;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vatplanner.dataformats.vatsimpublic.entities.status.Connection;
@@ -67,11 +68,17 @@ public class RelationalFacility extends Facility implements DirtyMark {
 
     public void insert(java.sql.Connection db) throws SQLException {
         if (hasRecordInDatabase) {
-            throw new UnsupportedOperationException("updating facilities is not implemented: name \"" + getName() + "\", connection ID " + ((RelationalConnection) getConnection()).getDatabaseId());
+            throw new UnsupportedOperationException(
+                "updating facilities is not implemented: name \"" + getName() //
+                    + "\", connection ID " + ((RelationalConnection) getConnection()).getDatabaseId() //
+            );
         }
 
         if (!providesATCService()) {
-            LOGGER.trace("facility {} does not provide ATC service and thus is irrelevant for this application, rejecting database insertion", getName());
+            LOGGER.trace(
+                "facility {} does not provide ATC service and thus is irrelevant for this application, rejecting database insertion",
+                getName() //
+            );
             markClean();
             return;
         }

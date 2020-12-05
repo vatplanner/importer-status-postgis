@@ -1,15 +1,20 @@
 package org.vatplanner.importer.postgis.status.utils;
 
-import com.tngtech.java.junit.dataprovider.DataProvider;
-import com.tngtech.java.junit.dataprovider.DataProviderRunner;
-import com.tngtech.java.junit.dataprovider.UseDataProvider;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertThat;
+
 import java.time.Instant;
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
+
+import com.tngtech.java.junit.dataprovider.DataProvider;
+import com.tngtech.java.junit.dataprovider.DataProviderRunner;
+import com.tngtech.java.junit.dataprovider.UseDataProvider;
 
 @RunWith(DataProviderRunner.class)
 public class TimeHelpersTest {
@@ -19,27 +24,27 @@ public class TimeHelpersTest {
 
     @DataProvider
     public static Object[][] dataProviderIsBetween() {
-        return new Object[][]{
+        return new Object[][] {
             // start = end
-            {Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(1000000), true}, //
-            {Instant.ofEpochSecond(1000001), Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(1000000), false}, //
-            {Instant.ofEpochSecond(999999), Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(1000000), false}, //
+            { Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(1000000), true }, //
+            { Instant.ofEpochSecond(1000001), Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(1000000), false }, //
+            { Instant.ofEpochSecond(999999), Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(1000000), false }, //
 
             // before start
-            {Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), false}, //
+            { Instant.ofEpochSecond(1000000), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), false }, //
 
             // at start
-            {Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), true}, //
+            { Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), true }, //
 
             // in between (exclusive)
-            {Instant.ofEpochSecond(2000001), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), true}, //
-            {Instant.ofEpochSecond(2999999), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), true}, //
+            { Instant.ofEpochSecond(2000001), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), true }, //
+            { Instant.ofEpochSecond(2999999), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), true }, //
 
             // at end
-            {Instant.ofEpochSecond(3000000), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), true}, //
+            { Instant.ofEpochSecond(3000000), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), true }, //
 
             // after end
-            {Instant.ofEpochSecond(3000001), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), false}, //
+            { Instant.ofEpochSecond(3000001), Instant.ofEpochSecond(2000000), Instant.ofEpochSecond(3000000), false }, //
         };
     }
 
@@ -109,7 +114,7 @@ public class TimeHelpersTest {
     }
 
     @Test
-    @DataProvider({"10", "20"})
+    @DataProvider({ "10", "20" })
     public void testMin_firstParameterNull_returnsSecondParameter(int expectedTimestamp) {
         // Arrange
         Instant expectedResult = Instant.ofEpochSecond(expectedTimestamp);
@@ -122,7 +127,7 @@ public class TimeHelpersTest {
     }
 
     @Test
-    @DataProvider({"10", "20"})
+    @DataProvider({ "10", "20" })
     public void testMin_secondParameterNull_returnsFirstParameter(int expectedTimestamp) {
         // Arrange
         Instant expectedResult = Instant.ofEpochSecond(expectedTimestamp);

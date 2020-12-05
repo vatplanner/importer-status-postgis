@@ -33,10 +33,10 @@ public class StrictEnumCache<T extends Enum> {
      * @param db database connection
      * @param sql query to read id (column 1) and enumeration name (column 2)
      * @param mappingNameToEnum maps an enumeration name read from database to a
-     * Java enum
+     *        Java enum
      * @throws SQLException if query fails
-     * @throws RuntimeException if data is inconsistent (expecting unique
-     * mapping to both sides)
+     * @throws RuntimeException if data is inconsistent (expecting unique mapping to
+     *         both sides)
      */
     public StrictEnumCache(Connection db, String sql, Function<String, T> mappingNameToEnum) throws SQLException {
         this.mappingNameToEnum = mappingNameToEnum;
@@ -45,8 +45,8 @@ public class StrictEnumCache<T extends Enum> {
 
     private void readFromDatabase(Connection db, String sql) throws SQLException {
         try (
-                Statement stmt = db.createStatement();
-                ResultSet rs = stmt.executeQuery(sql);) {
+            Statement stmt = db.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);) {
 
             while (rs.next()) {
                 int id = rs.getInt(1);
@@ -58,11 +58,18 @@ public class StrictEnumCache<T extends Enum> {
                 }
 
                 if (idByEnum.containsKey(enumValue)) {
-                    throw new RuntimeException("database name \"" + name + "\" resolved to ambiguous Java enum " + enumValue + ", already recorded with ID " + id);
+                    throw new RuntimeException(
+                        "database name \"" + name
+                            + "\" resolved to ambiguous Java enum " + enumValue
+                            + ", already recorded with ID " + id //
+                    );
                 }
 
                 if (enumById.containsKey(id)) {
-                    throw new RuntimeException("database name \"" + name + "\" has ambiguous ID, already recorded " + enumById.get(id));
+                    throw new RuntimeException(
+                        "database name \"" + name
+                            + "\" has ambiguous ID, already recorded " + enumById.get(id) //
+                    );
                 }
 
                 idByEnum.put(enumValue, id);
