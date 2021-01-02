@@ -1,5 +1,7 @@
 package org.vatplanner.importer.postgis.status;
 
+import static java.util.Arrays.asList;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -102,8 +104,9 @@ public class StatusImport {
         Instant latestFetchTimestamp = Instant.MAX;
 
         // request and parse data from archive
+        // TODO: support JSON v3
         CompletableFuture<List<ParsedDataFile>> futureDataFiles = archiveClient
-            .request(packerMethod, earliestFetchTimestamp, latestFetchTimestamp, fileLimit)
+            .request(packerMethod, earliestFetchTimestamp, latestFetchTimestamp, fileLimit, asList("legacy"))
             .thenApply(files -> {
                 return files
                     .stream()
