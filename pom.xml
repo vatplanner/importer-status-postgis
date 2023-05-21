@@ -17,6 +17,8 @@
         <log4j.version>2.17.1</log4j.version>
         <postgres.version>42.4.1</postgres.version>
         <junixsocket.version>1.0.2</junixsocket.version>
+        <vatplanner.dataformats.version>${project.version}</vatplanner.dataformats.version>
+        <vatplanner.rawDataArchiver.version>${project.version}</vatplanner.rawDataArchiver.version>
     </properties>
     
     <dependencies>
@@ -24,13 +26,13 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>raw-data-archiver-client</artifactId>
-            <version>${project.version}</version>
+            <version>${vatplanner.rawDataArchiver.version}</version>
         </dependency>
         
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>dataformats-vatsim-public</artifactId>
-            <version>${project.version}</version>
+            <version>${vatplanner.dataformats.version}</version>
         </dependency>
 
         <dependency>
