@@ -15,7 +15,7 @@
         <!-- runtime dependencies -->
         <slf4j.version>1.7.32</slf4j.version>
         <log4j.version>2.17.1</log4j.version>
-        <postgres.version>42.6.0</postgres.version>
+        <postgres.version>42.7.2</postgres.version>
         <junixsocket.version>1.0.2</junixsocket.version>
         <vatplanner.dataformats.version>${project.version}</vatplanner.dataformats.version>
         <vatplanner.rawDataArchiver.version>${project.version}</vatplanner.rawDataArchiver.version>
