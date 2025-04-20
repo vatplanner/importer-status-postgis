@@ -18,6 +18,8 @@ Please note that, other than the generally usable sub-projects [dataformats-vats
   - schema has to be imported manually, see: [sql/status.sql](sql/status.sql)
 - RabbitMQ AMQP server to fetch data from archive
 - an instance of [raw-data-archiver](https://github.com/vatplanner/raw-data-archiver) serving VATSIM data files to import
+- it is recommended to build this application together with [`dataformats-vatsim-public`](https://github.com/vatplanner/dataformats-vatsim-public), although it
+  may also work with the latest released version when overwriting the dependency version (snapshots do not get deployed)
 
 ## Configuration
 
